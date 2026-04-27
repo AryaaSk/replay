@@ -20,6 +20,40 @@ mod state;
 use errors::{ReplayError, Result};
 use state::{AppState, AppStateInner, CaptureMode, Provider, Settings};
 
+/// Catches Rust panics anywhere in the Tauri process and appends them to
+/// ~/Library/Application Support/Replay/logs/panic.log. macOS's native crash
+/// reporter still fires too, but our log gives us a clean Rust-side trace
+/// without the user having to dig through Console.app or symbolicate.
+fn install_panic_hook() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = format!(
+            "[{}] panic: {}\nlocation: {:?}\nbacktrace:\n{}\n",
+            chrono::Utc::now().to_rfc3339(),
+            info.payload()
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| info.payload().downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "<non-string panic payload>".into()),
+            info.location().map(|l| l.to_string()),
+            std::backtrace::Backtrace::force_capture(),
+        );
+        eprintln!("{msg}");
+        if let Ok(dir) = paths::logs_dir() {
+            let path = dir.join("panic.log");
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+            {
+                use std::io::Write;
+                let _ = writeln!(f, "{msg}");
+            }
+        }
+        prev(info);
+    }));
+}
+
 #[derive(Serialize)]
 struct SetupStatus {
     binary_installed: bool,
@@ -324,6 +358,7 @@ pub fn run() {
     if let Err(e) = paths::ensure_dirs() {
         eprintln!("warning: ensure_dirs failed: {e}");
     }
+    install_panic_hook();
     let settings = settings_io::load().unwrap_or_default();
     let app_state: AppState = Arc::new(AppStateInner::new(settings.clone()));
 

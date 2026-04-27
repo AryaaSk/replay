@@ -81,40 +81,45 @@ pub enum TrayState {
 /// Swap the tray icon AND the record-toggle menu item label based on the
 /// three-state ladder. Called from `events::broadcast` so the tray stays in
 /// lockstep with the frontend.
+///
+/// All UI mutation (icon swap + menu label set_text) is dispatched onto the
+/// Tauri main thread via `app.run_on_main_thread`. macOS's NSMenu / NSStatusItem
+/// APIs are not thread-safe and have been observed to panic when mutated from
+/// background tokio tasks.
 pub fn set_state(app: &AppHandle, state: TrayState) {
-    // Update menu label: "Start recording" when nothing is being captured for
-    // a replay, "Stop recording" when one is in progress.
-    if let Some(item) = RECORD_TOGGLE_ITEM.get() {
-        let label = match state {
-            TrayState::Recording => "Stop recording",
-            // Buffering and Standby both look the same from the user's
-            // perspective: there's no active replay being recorded yet.
-            _ => "Start recording",
-        };
-        if let Err(e) = item.set_text(label) {
-            log::warn!("tray.set_text failed: {e}");
+    let app = app.clone();
+    if let Err(e) = app.clone().run_on_main_thread(move || {
+        if let Some(item) = RECORD_TOGGLE_ITEM.get() {
+            let label = match state {
+                TrayState::Recording => "Stop recording",
+                _ => "Start recording",
+            };
+            if let Err(e) = item.set_text(label) {
+                log::warn!("tray.set_text failed: {e}");
+            }
         }
-    }
 
-    // Update icon.
-    let Some(tray) = app.tray_by_id(TRAY_ID) else {
-        return;
-    };
-    let (bytes, is_template) = match state {
-        TrayState::Standby => (IDLE_PNG, true),
-        TrayState::Buffering => (IDLE_PNG, false),
-        TrayState::Recording => (CAPTURING_PNG, false),
-    };
-    match Image::from_bytes(bytes) {
-        Ok(img) => {
-            if let Err(e) = tray.set_icon(Some(img)) {
-                log::warn!("tray.set_icon failed: {e}");
+        let Some(tray) = app.tray_by_id(TRAY_ID) else {
+            return;
+        };
+        let (bytes, is_template) = match state {
+            TrayState::Standby => (IDLE_PNG, true),
+            TrayState::Buffering => (IDLE_PNG, false),
+            TrayState::Recording => (CAPTURING_PNG, false),
+        };
+        match Image::from_bytes(bytes) {
+            Ok(img) => {
+                if let Err(e) = tray.set_icon(Some(img)) {
+                    log::warn!("tray.set_icon failed: {e}");
+                }
+                if let Err(e) = tray.set_icon_as_template(is_template) {
+                    log::warn!("tray.set_icon_as_template failed: {e}");
+                }
             }
-            if let Err(e) = tray.set_icon_as_template(is_template) {
-                log::warn!("tray.set_icon_as_template failed: {e}");
-            }
+            Err(e) => log::warn!("tray icon decode failed: {e}"),
         }
-        Err(e) => log::warn!("tray icon decode failed: {e}"),
+    }) {
+        log::warn!("set_state: failed to dispatch to main thread: {e}");
     }
 }
 

@@ -35,8 +35,10 @@ export function RecordButton({ captureState, onStart, onStop, disabled, busy }: 
   return (
     <div className="flex flex-col items-center gap-7">
       <div className="relative flex items-center justify-center">
-        {/* Hairline pulse ring while recording — sharp, no glow */}
-        {recording ? (
+        {/* Hairline pulse ring while recording — sharp, no glow.
+            Suppressed during the busy/processing window so the user gets a
+            clean transition the moment they click Stop. */}
+        {recording && !busy ? (
           <span
             className="absolute rounded-full pointer-events-none animate-pulse-rec"
             style={{
@@ -72,17 +74,19 @@ export function RecordButton({ captureState, onStart, onStop, disabled, busy }: 
             }}
           />
 
-          {/* Centered glyph */}
+          {/* Centered glyph. Priority: busy > recording > idle so the
+              spinner appears immediately when the user clicks Stop, even
+              while recording_start is still set during the flush window. */}
           <span className="absolute inset-0 flex items-center justify-center">
-            {recording ? (
-              <span
-                className="block bg-bone"
-                style={{ width: 32, height: 32 }}
-              />
-            ) : busy ? (
+            {busy ? (
               <span
                 className="block rounded-full border-2 border-bone/30 border-t-bone animate-spin"
                 style={{ width: 26, height: 26 }}
+              />
+            ) : recording ? (
+              <span
+                className="block bg-bone"
+                style={{ width: 32, height: 32 }}
               />
             ) : (
               <span
@@ -94,15 +98,17 @@ export function RecordButton({ captureState, onStart, onStop, disabled, busy }: 
         </button>
       </div>
 
-      {/* Caption */}
+      {/* Caption — same priority order as the glyph: busy beats recording,
+          so the timer freezes the instant the user clicks Stop instead of
+          continuing to tick during the screenpipe flush. */}
       <div className="text-center min-h-[2rem]">
-        {recording ? (
-          <div className="font-mono text-3xl text-ember tabular-nums tracking-tight leading-none">
-            {elapsed}
-          </div>
-        ) : busy ? (
+        {busy ? (
           <div className="text-2xs uppercase tracking-[0.3em] text-ash animate-tick">
             ▮ processing
+          </div>
+        ) : recording ? (
+          <div className="font-mono text-3xl text-ember tabular-nums tracking-tight leading-none">
+            {elapsed}
           </div>
         ) : (
           <div className="text-2xs uppercase tracking-[0.4em] text-ash">
