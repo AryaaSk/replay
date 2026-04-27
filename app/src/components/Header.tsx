@@ -27,7 +27,8 @@ export function Header({ captureState, onOpenSettings }: Props) {
       </div>
       <button
         onClick={onOpenSettings}
-        className="text-neutral-400 hover:text-neutral-100 transition-colors text-sm"
+        aria-label="Open settings"
+        className="text-neutral-300 hover:text-neutral-100 transition-colors text-2xl leading-none px-2 py-1"
       >
         ⚙
       </button>

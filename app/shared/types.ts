@@ -5,7 +5,27 @@ export type CaptureMode = "fresh" | "always-warm";
 
 export type LookbackSeconds = 30 | 60 | 120 | 300;
 
-export type ModelChoice = "claude-sonnet-4-6" | "claude-haiku-4-5" | "claude-opus-4-7";
+export type Provider = "anthropic" | "openai";
+
+export type AnthropicModel = "claude-sonnet-4-6" | "claude-haiku-4-5" | "claude-opus-4-7";
+export type OpenAIModel = "gpt-5" | "gpt-5-mini" | "gpt-4.1";
+export type ModelChoice = AnthropicModel | OpenAIModel;
+
+export const ANTHROPIC_MODELS: ReadonlyArray<{ id: AnthropicModel; label: string }> = [
+  { id: "claude-sonnet-4-6", label: "claude-sonnet-4-6 (recommended)" },
+  { id: "claude-haiku-4-5", label: "claude-haiku-4-5 (cheaper)" },
+  { id: "claude-opus-4-7", label: "claude-opus-4-7 (best quality)" },
+];
+export const OPENAI_MODELS: ReadonlyArray<{ id: OpenAIModel; label: string }> = [
+  { id: "gpt-5", label: "gpt-5 (recommended)" },
+  { id: "gpt-5-mini", label: "gpt-5-mini (cheaper)" },
+  { id: "gpt-4.1", label: "gpt-4.1 (legacy)" },
+];
+
+export const DEFAULT_MODEL_FOR: Record<Provider, ModelChoice> = {
+  anthropic: "claude-sonnet-4-6",
+  openai: "gpt-5",
+};
 
 export interface CaptureState {
   capturing: boolean;
@@ -34,6 +54,7 @@ export interface InstallProgress {
 export interface Settings {
   alwaysWarm: boolean;
   lookbackSeconds: LookbackSeconds;
+  provider: Provider;
   model: ModelChoice;
   monitorId: number | null; // null = all monitors
   filterMusic: boolean;
@@ -51,6 +72,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   alwaysWarm: false,
   lookbackSeconds: 60,
+  provider: "anthropic",
   model: "claude-sonnet-4-6",
   monitorId: null,
   filterMusic: true,

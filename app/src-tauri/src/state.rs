@@ -20,10 +20,35 @@ pub struct CaptureState {
     pub prewarm_active: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    Anthropic,
+    Openai,
+}
+
+impl Provider {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Provider::Anthropic => "anthropic",
+            Provider::Openai => "openai",
+        }
+    }
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "anthropic" => Some(Provider::Anthropic),
+            "openai" => Some(Provider::Openai),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub always_warm: bool,
     pub lookback_seconds: u32,
+    #[serde(default = "default_provider")]
+    pub provider: Provider,
     pub model: String,
     pub monitor_id: Option<u32>,
     pub filter_music: bool,
@@ -38,11 +63,16 @@ pub struct Settings {
     pub disable_audio: bool,
 }
 
+fn default_provider() -> Provider {
+    Provider::Anthropic
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
             always_warm: false,
             lookback_seconds: 60,
+            provider: Provider::Anthropic,
             model: "claude-sonnet-4-6".into(),
             monitor_id: None,
             filter_music: true,

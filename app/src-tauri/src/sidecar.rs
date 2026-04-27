@@ -23,18 +23,26 @@ pub async fn run_render(
     end_ts: &str,
     replay_id: &str,
 ) -> Result<std::path::PathBuf> {
-    let api_key = keychain::get_anthropic_key()?
-        .ok_or(ReplayError::ApiKeyMissing)?;
-
-    let data_dir = paths::screenpipe_data_dir()?;
-    let out_dir = paths::replays_dir()?.join(replay_id);
-    tokio::fs::create_dir_all(&out_dir).await?;
-
     let settings_json = {
         let state = app.state::<AppState>();
         let s: Settings = state.settings.lock().await.clone();
         serde_json::to_string(&s).unwrap_or_else(|_| "{}".into())
     };
+    let provider = {
+        let state = app.state::<AppState>();
+        state.settings.lock().await.provider
+    };
+
+    let api_key = keychain::get_key(provider)?
+        .ok_or(ReplayError::ApiKeyMissing)?;
+    let env_var_name = match provider {
+        crate::state::Provider::Anthropic => "ANTHROPIC_API_KEY",
+        crate::state::Provider::Openai => "OPENAI_API_KEY",
+    };
+
+    let data_dir = paths::screenpipe_data_dir()?;
+    let out_dir = paths::replays_dir()?.join(replay_id);
+    tokio::fs::create_dir_all(&out_dir).await?;
 
     let sidecar = app
         .shell()
@@ -54,7 +62,7 @@ pub async fn run_render(
             "--settings",
             &settings_json,
         ])
-        .env("ANTHROPIC_API_KEY", api_key);
+        .env(env_var_name, api_key);
 
     let (mut rx, _child) = sidecar
         .spawn()

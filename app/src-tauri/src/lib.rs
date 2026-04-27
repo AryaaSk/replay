@@ -16,7 +16,7 @@ mod sidecar;
 mod state;
 
 use errors::{ReplayError, Result};
-use state::{AppState, AppStateInner, CaptureMode, Settings};
+use state::{AppState, AppStateInner, CaptureMode, Provider, Settings};
 
 #[derive(Serialize)]
 struct SetupStatus {
@@ -144,16 +144,20 @@ async fn get_capture_state(state: tauri::State<'_, AppState>) -> Result<state::C
 }
 
 #[tauri::command]
-async fn has_api_key() -> Result<bool> {
-    Ok(keychain::get_anthropic_key()?.is_some())
+async fn has_api_key(provider: String) -> Result<bool> {
+    let p = Provider::from_str(&provider)
+        .ok_or_else(|| ReplayError::Internal(format!("unknown provider: {provider}")))?;
+    Ok(keychain::get_key(p)?.is_some())
 }
 
 #[tauri::command]
-async fn set_api_key(key: String) -> Result<()> {
+async fn set_api_key(provider: String, key: String) -> Result<()> {
+    let p = Provider::from_str(&provider)
+        .ok_or_else(|| ReplayError::Internal(format!("unknown provider: {provider}")))?;
     if key.trim().is_empty() {
-        keychain::delete_anthropic_key()?;
+        keychain::delete_key(p)?;
     } else {
-        keychain::set_anthropic_key(&key)?;
+        keychain::set_key(p, &key)?;
     }
     Ok(())
 }

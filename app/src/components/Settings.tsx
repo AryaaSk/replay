@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { ipc } from "../lib/ipc";
-import type { Settings as S } from "@shared/types";
+import {
+  ANTHROPIC_MODELS,
+  DEFAULT_MODEL_FOR,
+  OPENAI_MODELS,
+  type AnthropicModel,
+  type OpenAIModel,
+  type Provider,
+  type Settings as S,
+} from "@shared/types";
 
 interface Props {
   onClose: () => void;
@@ -8,13 +16,16 @@ interface Props {
 
 export function SettingsPane({ onClose }: Props) {
   const [settings, setSettings] = useState<S | null>(null);
-  const [hasKey, setHasKey] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
+  const [hasAnthropic, setHasAnthropic] = useState(false);
+  const [hasOpenAI, setHasOpenAI] = useState(false);
+  const [anthropicInput, setAnthropicInput] = useState("");
+  const [openaiInput, setOpenaiInput] = useState("");
   const [keyMessage, setKeyMessage] = useState<string>("");
 
   useEffect(() => {
     void ipc.getSettings().then(setSettings);
-    void ipc.hasApiKey().then(setHasKey);
+    void ipc.hasApiKey("anthropic").then(setHasAnthropic);
+    void ipc.hasApiKey("openai").then(setHasOpenAI);
   }, []);
 
   if (!settings) {
@@ -31,25 +42,47 @@ export function SettingsPane({ onClose }: Props) {
     void ipc.setSettings(next);
   };
 
-  const onSaveKey = async () => {
-    const trimmed = keyInput.trim();
+  // When the provider switches, fall back to that provider's recommended model
+  // if the previously-selected model isn't valid for the new provider.
+  const onProviderChange = (next: Provider) => {
+    const validIds: string[] =
+      next === "anthropic"
+        ? ANTHROPIC_MODELS.map((m) => m.id)
+        : OPENAI_MODELS.map((m) => m.id);
+    const newModel = validIds.includes(settings.model)
+      ? settings.model
+      : DEFAULT_MODEL_FOR[next];
+    update({ provider: next, model: newModel });
+  };
+
+  const onSaveKey = async (provider: Provider, value: string) => {
+    const trimmed = value.trim();
     if (!trimmed) {
       setKeyMessage("Empty key — nothing saved");
       return;
     }
-    await ipc.setApiKey(trimmed);
-    setHasKey(true);
-    setKeyInput("");
-    setKeyMessage("Saved to Keychain");
+    await ipc.setApiKey(provider, trimmed);
+    if (provider === "anthropic") {
+      setHasAnthropic(true);
+      setAnthropicInput("");
+    } else {
+      setHasOpenAI(true);
+      setOpenaiInput("");
+    }
+    setKeyMessage(`Saved ${provider} key to Keychain`);
     setTimeout(() => setKeyMessage(""), 2000);
   };
 
-  const onDeleteKey = async () => {
-    await ipc.setApiKey("");
-    setHasKey(false);
-    setKeyMessage("Removed from Keychain");
+  const onDeleteKey = async (provider: Provider) => {
+    await ipc.setApiKey(provider, "");
+    if (provider === "anthropic") setHasAnthropic(false);
+    else setHasOpenAI(false);
+    setKeyMessage(`Removed ${provider} key from Keychain`);
     setTimeout(() => setKeyMessage(""), 2000);
   };
+
+  const modelOptions =
+    settings.provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
 
   return (
     <div className="absolute inset-0 bg-neutral-950 flex flex-col">
@@ -57,57 +90,64 @@ export function SettingsPane({ onClose }: Props) {
         <div className="text-sm text-neutral-300">Settings</div>
         <button
           onClick={onClose}
-          className="text-neutral-400 hover:text-neutral-100 text-xl leading-none px-1"
+          className="text-neutral-400 hover:text-neutral-100 text-2xl leading-none px-1"
         >
           ×
         </button>
       </div>
       <div className="flex-1 overflow-auto p-5 space-y-6 text-sm">
-        <Section title="Anthropic API key">
-          <div className="text-xs text-neutral-500 mb-2">
-            Stored in macOS Keychain. Used for the Claude vision call.
-          </div>
-          {hasKey ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-green-500">● key saved</span>
-              <button
-                onClick={() => void onDeleteKey()}
-                className="text-xs text-red-400 hover:text-red-300"
-              >
-                Remove
-              </button>
-            </div>
-          ) : null}
-          <div className="flex gap-2 mt-2">
-            <input
-              type="password"
-              placeholder="sk-ant-api03-…"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs"
-            />
-            <button
-              onClick={() => void onSaveKey()}
-              className="text-xs px-3 py-1 rounded bg-neutral-100 text-neutral-900"
-            >
-              Save
-            </button>
-          </div>
-          {keyMessage ? (
-            <div className="text-xs text-neutral-500 mt-1">{keyMessage}</div>
-          ) : null}
+        <Section title="Provider">
+          <Radio
+            value={settings.provider}
+            options={[
+              { v: "anthropic", label: "Anthropic Claude" },
+              { v: "openai", label: "OpenAI GPT" },
+            ]}
+            onChange={(v) => onProviderChange(v as Provider)}
+          />
         </Section>
 
         <Section title="Model">
           <Radio
             value={settings.model}
-            options={[
-              { v: "claude-sonnet-4-6", label: "claude-sonnet-4-6 (recommended)" },
-              { v: "claude-haiku-4-5", label: "claude-haiku-4-5 (cheaper)" },
-              { v: "claude-opus-4-7", label: "claude-opus-4-7 (best quality)" },
-            ]}
-            onChange={(v) => update({ model: v as S["model"] })}
+            options={modelOptions.map((m) => ({ v: m.id, label: m.label }))}
+            onChange={(v) =>
+              update({
+                model:
+                  settings.provider === "anthropic"
+                    ? (v as AnthropicModel)
+                    : (v as OpenAIModel),
+              })
+            }
           />
+        </Section>
+
+        <Section title="API keys">
+          <div className="text-xs text-neutral-500 mb-2">
+            Stored in macOS Keychain. The active provider's key is used for the next replay.
+          </div>
+
+          <KeyInput
+            label="Anthropic"
+            placeholder="sk-ant-api03-…"
+            saved={hasAnthropic}
+            value={anthropicInput}
+            onChange={setAnthropicInput}
+            onSave={() => void onSaveKey("anthropic", anthropicInput)}
+            onDelete={() => void onDeleteKey("anthropic")}
+          />
+          <KeyInput
+            label="OpenAI"
+            placeholder="sk-proj-…"
+            saved={hasOpenAI}
+            value={openaiInput}
+            onChange={setOpenaiInput}
+            onSave={() => void onSaveKey("openai", openaiInput)}
+            onDelete={() => void onDeleteKey("openai")}
+          />
+          {keyMessage ? (
+            <div className="text-xs text-neutral-500 mt-1">{keyMessage}</div>
+          ) : null}
         </Section>
 
         <Section title="Capture">
@@ -158,7 +198,7 @@ export function SettingsPane({ onClose }: Props) {
           <Toggle
             checked={settings.confirmBeforeSend}
             onChange={(v) => update({ confirmBeforeSend: v })}
-            label="Confirm before sending to Anthropic"
+            label="Confirm before sending to the AI provider"
           />
           <Toggle
             checked={settings.wipeOnQuit}
@@ -254,6 +294,58 @@ function Radio({
           {o.label}
         </label>
       ))}
+    </div>
+  );
+}
+
+function KeyInput({
+  label,
+  placeholder,
+  saved,
+  value,
+  onChange,
+  onSave,
+  onDelete,
+}: {
+  label: string;
+  placeholder: string;
+  saved: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="text-xs text-neutral-400">{label}</div>
+        {saved ? (
+          <>
+            <span className="text-xs text-green-500">● saved</span>
+            <button
+              onClick={onDelete}
+              className="text-xs text-red-400 hover:text-red-300"
+            >
+              Remove
+            </button>
+          </>
+        ) : null}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="password"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs"
+        />
+        <button
+          onClick={onSave}
+          className="text-xs px-3 py-1 rounded bg-neutral-100 text-neutral-900"
+        >
+          Save
+        </button>
+      </div>
     </div>
   );
 }

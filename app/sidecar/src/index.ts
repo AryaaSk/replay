@@ -59,6 +59,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   let model = "claude-sonnet-4-6";
+  let provider: "anthropic" | "openai" = "anthropic";
   let mode: "fresh" | "always-warm" = "fresh";
   let lookbackSeconds = 0;
   let redactSecretsFlag = true;
@@ -67,6 +68,9 @@ async function main(): Promise<void> {
     try {
       const s = JSON.parse(args.settings) as Record<string, unknown>;
       if (typeof s["model"] === "string") model = s["model"] as string;
+      if (s["provider"] === "openai" || s["provider"] === "anthropic") {
+        provider = s["provider"];
+      }
       mode = s["always_warm"] === true ? "always-warm" : "fresh";
       if (typeof s["lookback_seconds"] === "number") lookbackSeconds = s["lookback_seconds"] as number;
       if (typeof s["redact_secrets"] === "boolean") redactSecretsFlag = s["redact_secrets"] as boolean;
@@ -153,9 +157,10 @@ async function main(): Promise<void> {
 
   db.close();
 
-  // 7. Anthropic call
+  // 7. Provider call
   emit({ event: "calling_anthropic", model });
   const description = await describe({
+    provider,
     model,
     events,
     picked,

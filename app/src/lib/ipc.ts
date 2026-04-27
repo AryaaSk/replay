@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CaptureState,
+  Provider,
   ReplaySummary,
   Settings,
   SetupStatus,
@@ -58,6 +59,7 @@ export const ipc = {
     invoke<{
       always_warm: boolean;
       lookback_seconds: number;
+      provider: string;
       model: string;
       monitor_id: number | null;
       filter_music: boolean;
@@ -73,6 +75,7 @@ export const ipc = {
     }>("get_settings").then((s): Settings => ({
       alwaysWarm: s.always_warm,
       lookbackSeconds: s.lookback_seconds as Settings["lookbackSeconds"],
+      provider: (s.provider === "openai" ? "openai" : "anthropic") as Provider,
       model: s.model as Settings["model"],
       monitorId: s.monitor_id,
       filterMusic: s.filter_music,
@@ -92,6 +95,7 @@ export const ipc = {
       newSettings: {
         always_warm: s.alwaysWarm,
         lookback_seconds: s.lookbackSeconds,
+        provider: s.provider,
         model: s.model,
         monitor_id: s.monitorId,
         filter_music: s.filterMusic,
@@ -120,8 +124,9 @@ export const ipc = {
       prewarmActive: r.prewarm_active,
     })),
 
-  hasApiKey: () => invoke<boolean>("has_api_key"),
-  setApiKey: (key: string) => invoke<void>("set_api_key", { key }),
+  hasApiKey: (provider: Provider) => invoke<boolean>("has_api_key", { provider }),
+  setApiKey: (provider: Provider, key: string) =>
+    invoke<void>("set_api_key", { provider, key }),
 
   quitCapturing: () => invoke<void>("quit_capturing"),
 

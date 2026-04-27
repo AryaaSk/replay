@@ -62,10 +62,11 @@ export default function App() {
   const handleStart = async () => {
     setError(null);
     try {
-      const hasKey = await ipc.hasApiKey();
+      const settings = await ipc.getSettings();
+      const hasKey = await ipc.hasApiKey(settings.provider);
       if (!hasKey) {
-        setError("Add your Anthropic API key in Settings before recording.");
-        setView("settings");
+        const providerLabel = settings.provider === "openai" ? "OpenAI" : "Anthropic";
+        setError(`No ${providerLabel} API key — go to settings`);
         return;
       }
       await ipc.startRecording();
