@@ -28,7 +28,18 @@ pub fn save(settings: &Settings) -> Result<()> {
         })?;
     }
     let bytes = serde_json::to_vec_pretty(settings)?;
-    let tmp = path.with_extension("json.tmp");
+    // Unique tmp suffix per call: prevents two concurrent saves from writing
+    // the same file path and racing on rename. (PID + nanos is good enough —
+    // collisions across calls within the same process are vanishingly rare.)
+    let suffix = format!(
+        "{}.{}.tmp",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    let tmp = path.with_extension(suffix);
     std::fs::write(&tmp, bytes).map_err(|e| {
         crate::errors::ReplayError::Internal(format!(
             "settings save: write({}) failed: {e}",
@@ -36,6 +47,8 @@ pub fn save(settings: &Settings) -> Result<()> {
         ))
     })?;
     std::fs::rename(&tmp, &path).map_err(|e| {
+        // Clean up the orphan tmp file before returning so disk doesn't grow.
+        let _ = std::fs::remove_file(&tmp);
         crate::errors::ReplayError::Internal(format!(
             "settings save: rename({} -> {}) failed: {e}",
             tmp.display(),

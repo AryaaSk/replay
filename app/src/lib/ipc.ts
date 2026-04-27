@@ -113,7 +113,11 @@ export const ipc = {
     }>("get_settings").then((s): Settings => ({
       alwaysWarm: s.always_warm,
       lookbackSeconds: s.lookback_seconds as Settings["lookbackSeconds"],
-      provider: (s.provider === "openai" ? "openai" : "anthropic") as Provider,
+      provider: (
+        s.provider === "openai" || s.provider === "local-claude" || s.provider === "local-codex"
+          ? s.provider
+          : "anthropic"
+      ) as Provider,
       model: s.model as Settings["model"],
       monitorId: s.monitor_id,
       filterMusic: s.filter_music,
