@@ -65,38 +65,48 @@ export function PreviewPane({ replayId, onClose, onIdChange }: Props) {
     reload(replayId);
   }, [replayId]);
 
-  // Subscribe to sidecar status + render-complete / render-error so we can
-  // (a) show progress while we wait and (b) refresh once the render lands.
+  // Subscribe to sidecar status + render-complete / render-error.
+  // Cancellation flag handles React StrictMode's dev-mode double-mount: if
+  // a listener registration resolves AFTER cleanup, we still unregister it
+  // immediately. Without this, listeners leaked and events fired 2-3× in
+  // the UI feed.
   useEffect(() => {
-    let unsubStatus: (() => void) | undefined;
-    let unsubComplete: (() => void) | undefined;
-    let unsubError: (() => void) | undefined;
-    (async () => {
-      unsubStatus = await onSidecarStatus((evt) => {
-        setStatusFeed((prev) => [...prev.slice(-9), evt]);
+    let cancelled = false;
+    const unsubs: Array<() => void> = [];
+    const collect = (u: () => void) => {
+      if (cancelled) u();
+      else unsubs.push(u);
+    };
+
+    void onSidecarStatus((evt) => {
+      setStatusFeed((prev) => {
+        // Defensive dedupe: drop consecutive identical events.
+        const last = prev[prev.length - 1];
+        if (last && JSON.stringify(last) === JSON.stringify(evt)) return prev;
+        return [...prev.slice(-9), evt];
       });
-      unsubComplete = await onRenderComplete(({ initialId, finalId }) => {
-        if (initialId === replayId || finalId === replayId) {
-          setStatusFeed([]);
-          setRenderError(null);
-          if (initialId !== finalId && initialId === replayId) {
-            onIdChange?.(finalId);
-          } else {
-            reload(replayId);
-          }
-        }
-      });
-      unsubError = await onRenderError(({ initialId, error: msg }) => {
-        if (initialId === replayId) {
-          setRenderError(msg);
-          reload(replayId);
-        }
-      });
-    })();
+    }).then(collect);
+
+    void onRenderComplete(({ initialId, finalId }) => {
+      if (initialId !== replayId && finalId !== replayId) return;
+      setStatusFeed([]);
+      setRenderError(null);
+      if (initialId !== finalId && initialId === replayId) {
+        onIdChange?.(finalId);
+      } else {
+        reload(replayId);
+      }
+    }).then(collect);
+
+    void onRenderError(({ initialId, error: msg }) => {
+      if (initialId !== replayId) return;
+      setRenderError(msg);
+      reload(replayId);
+    }).then(collect);
+
     return () => {
-      unsubStatus?.();
-      unsubComplete?.();
-      unsubError?.();
+      cancelled = true;
+      for (const u of unsubs) u();
     };
   }, [replayId, onIdChange]);
 

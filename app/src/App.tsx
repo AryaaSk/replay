@@ -68,12 +68,15 @@ export default function App() {
 
   // Initial setup check + state subscriptions + provider auto-fallback
   useEffect(() => {
-    let unsubCapture: (() => void) | undefined;
-    let unsubSidecar: (() => void) | undefined;
-    let unsubTray: (() => void) | undefined;
-    let unsubTrayToggle: (() => void) | undefined;
-    let unsubRenderComplete: (() => void) | undefined;
-    let unsubRenderError: (() => void) | undefined;
+    // Cancellation flag + array pattern handles React StrictMode's
+    // double-mount: any listener that finishes registering after cleanup
+    // is unregistered immediately so we never leak.
+    let cancelled = false;
+    const unsubs: Array<() => void> = [];
+    const collect = (u: () => void) => {
+      if (cancelled) u();
+      else unsubs.push(u);
+    };
 
     (async () => {
       try {
@@ -136,25 +139,27 @@ export default function App() {
       } catch (e) {
         setError(String(e));
       }
-      unsubCapture = await onCaptureStateChanged((s) => setCaptureState(s));
-      unsubSidecar = await onSidecarStatus((e) => setSidecarTail(e));
-      unsubTray = await onCaptureStoppedFromTray(() => {
-        void ipc.getCaptureState().then(setCaptureState);
-      });
-      unsubRenderComplete = await onRenderComplete(async ({ initialId, finalId }) => {
-        // Swap the preview's id if the slug rename changed it.
-        if (previewIdRef.current === initialId && initialId !== finalId) {
-          setPreviewId(finalId);
-        }
-        await refreshReplays();
-      });
-      unsubRenderError = await onRenderError(({ error: msg }) => {
-        // The PreviewPane listens to this too via its own subscription, so
-        // we only set the global error if no preview is open (eg user is
-        // already back on the main view).
-        if (!previewIdRef.current) setError(msg);
-      });
-      unsubTrayToggle = await onTrayRecordToggle(async () => {
+      collect(await onCaptureStateChanged((s) => setCaptureState(s)));
+      collect(await onSidecarStatus((e) => setSidecarTail(e)));
+      collect(
+        await onCaptureStoppedFromTray(() => {
+          void ipc.getCaptureState().then(setCaptureState);
+        }),
+      );
+      collect(
+        await onRenderComplete(async ({ initialId, finalId }) => {
+          if (previewIdRef.current === initialId && initialId !== finalId) {
+            setPreviewId(finalId);
+          }
+          await refreshReplays();
+        }),
+      );
+      collect(
+        await onRenderError(({ error: msg }) => {
+          if (!previewIdRef.current) setError(msg);
+        }),
+      );
+      collect(await onTrayRecordToggle(async () => {
         // Use the same code paths as the in-app Record button so permission
         // checks, key checks, busy state, and preview rendering all work.
         // Dispatch through handlersRef so we always call the latest version
@@ -166,15 +171,11 @@ export default function App() {
         } else {
           await handlersRef.current.start?.();
         }
-      });
+      }));
     })();
     return () => {
-      unsubCapture?.();
-      unsubSidecar?.();
-      unsubTray?.();
-      unsubTrayToggle?.();
-      unsubRenderComplete?.();
-      unsubRenderError?.();
+      cancelled = true;
+      for (const u of unsubs) u();
     };
   }, [refreshReplays]);
 
@@ -219,7 +220,17 @@ export default function App() {
     }
   };
 
-  const recordDisabled = needsInstall || permissionsChecking || (
+  // Detect the cold-spawn warmup window: fresh mode + screenpipe alive but
+  // no active recording. During this ~1-3s window we're polling the DB for
+  // the first frame; clicking record again would race the in-flight start.
+  // (Always-warm mode is identical state-shape but is steady-state idle
+  // and SHOULD be clickable, hence the mode check.)
+  const warmingUp =
+    captureState?.mode === "fresh" &&
+    captureState.capturing &&
+    captureState.recordingStart == null;
+
+  const recordDisabled = needsInstall || permissionsChecking || warmingUp || (
     permissions ? (
       permissions.screenRecording !== "ok" ||
       permissions.accessibility !== "ok"
@@ -284,7 +295,7 @@ export default function App() {
           onStart={() => void handleStart()}
           onStop={() => void handleStop()}
           disabled={recordDisabled}
-          busy={!!busy}
+          busy={!!busy || warmingUp}
         />
         {captureState?.mode === "always-warm" && !captureState.recordingStart ? (
           <div className="text-2xs uppercase tracking-[0.3em] text-dust">

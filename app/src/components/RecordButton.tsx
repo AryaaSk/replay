@@ -100,11 +100,13 @@ export function RecordButton({ captureState, onStart, onStop, disabled, busy }: 
 
       {/* Caption — same priority order as the glyph: busy beats recording,
           so the timer freezes the instant the user clicks Stop instead of
-          continuing to tick during the screenpipe flush. */}
+          continuing to tick during the screenpipe flush.
+          Caller passes busy=true during cold-spawn warmup too, so the
+          caption reads "starting…" while screenpipe boots. */}
       <div className="text-center min-h-[2rem]">
         {busy ? (
           <div className="text-2xs uppercase tracking-[0.3em] text-ash animate-tick">
-            ▮ processing
+            ▮ {recording ? "processing" : "starting"}
           </div>
         ) : recording ? (
           <div className="font-mono text-3xl text-ember tabular-nums tracking-tight leading-none">

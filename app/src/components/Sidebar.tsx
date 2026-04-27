@@ -25,11 +25,6 @@ function fmtTime(iso: string): string {
 }
 
 function shortId(id: string): string {
-  // Slug-style ids (post-rename): show as-is, truncated.
-  // ULIDs (pre-rename / fallback): show the last 6 chars.
-  if (/^[a-z][a-z0-9-]*$/.test(id)) {
-    return id.length > 16 ? id.slice(0, 14) + "…" : id;
-  }
   return id.slice(-6).toLowerCase();
 }
 
