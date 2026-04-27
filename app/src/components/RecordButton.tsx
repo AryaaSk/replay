@@ -35,104 +35,59 @@ export function RecordButton({ captureState, onStart, onStop, disabled, busy }: 
   return (
     <div className="flex flex-col items-center gap-7">
       <div className="relative flex items-center justify-center">
-        {/* Soft halo behind the button — gives the red room to bloom into the canvas */}
-        <span
-          className="absolute pointer-events-none rounded-full"
-          style={{
-            width: 220,
-            height: 220,
-            background:
-              "radial-gradient(circle, rgba(232,78,27,0.18) 0%, rgba(232,78,27,0.05) 40%, transparent 70%)",
-          }}
-        />
-
-        {/* Pulse ring while recording */}
+        {/* Hairline pulse ring while recording — sharp, no glow */}
         {recording ? (
           <span
             className="absolute rounded-full pointer-events-none animate-pulse-rec"
             style={{
               width: 168,
               height: 168,
-              border: "1px solid rgba(232,78,27,0.45)",
+              border: "1px solid rgba(232,78,27,0.55)",
             }}
           />
         ) : null}
 
-        {/* THE BUTTON — single large tactile control */}
+        {/* THE BUTTON — flat solid disk, 1px hover ring, no gradients */}
         <button
           disabled={disabled || busy}
           onClick={recording ? onStop : onStart}
           aria-label={recording ? "Stop recording" : "Start recording"}
           className={[
-            "relative rounded-full transition-transform duration-150",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-bone/30",
-            disabled || busy ? "opacity-50 cursor-not-allowed" : "active:scale-[0.97] hover:scale-[1.02]",
+            "group relative rounded-full transition-transform duration-150",
+            "focus:outline-none focus-visible:ring-1 focus-visible:ring-bone/40 focus-visible:ring-offset-4 focus-visible:ring-offset-ink",
+            disabled || busy ? "opacity-50 cursor-not-allowed" : "active:scale-[0.97]",
           ].join(" ")}
           style={{
             width: 144,
             height: 144,
-            background:
-              "radial-gradient(circle at 35% 28%, #FF8B5C 0%, #E84E1B 42%, #B73914 78%, #7A2208 100%)",
-            boxShadow: [
-              // outer ember halo
-              "0 0 60px rgba(232,78,27,0.30)",
-              "0 0 20px rgba(232,78,27,0.45)",
-              // bottom drop shadow for grounding
-              "0 6px 24px rgba(0,0,0,0.6)",
-              // inset top highlight (light from above)
-              "inset 0 2px 1px rgba(255,255,255,0.3)",
-              // inset bottom shadow (volume)
-              "inset 0 -8px 16px rgba(0,0,0,0.45)",
-              // hairline rim
-              "inset 0 0 0 1px rgba(255,255,255,0.08)",
-            ].join(", "),
+            backgroundColor: "#E84E1B",
           }}
         >
-          {/* Specular highlight — soft ellipse near the top for "wet" sphere look */}
+          {/* Hairline ring that appears on hover — same vocabulary as .brackets */}
           <span
-            className="absolute pointer-events-none"
+            className="absolute rounded-full pointer-events-none transition-opacity duration-150 opacity-0 group-hover:opacity-100"
             style={{
-              top: "10%",
-              left: "22%",
-              width: "56%",
-              height: "26%",
-              background:
-                "radial-gradient(ellipse, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 70%)",
-              borderRadius: "50%",
-              filter: "blur(2px)",
+              inset: -8,
+              border: "1px solid #E84E1B",
             }}
           />
 
           {/* Centered glyph */}
           <span className="absolute inset-0 flex items-center justify-center">
             {recording ? (
-              // Stop — rounded square with subtle inner depth
               <span
-                className="block rounded-[3px]"
-                style={{
-                  width: 36,
-                  height: 36,
-                  background: "#F0EAD9",
-                  boxShadow:
-                    "inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.35)",
-                }}
+                className="block bg-bone"
+                style={{ width: 32, height: 32 }}
               />
             ) : busy ? (
               <span
                 className="block rounded-full border-2 border-bone/30 border-t-bone animate-spin"
-                style={{ width: 28, height: 28 }}
+                style={{ width: 26, height: 26 }}
               />
             ) : (
-              // Idle — record dot glyph (filled circle in bone, like a film camera REC)
               <span
-                className="block rounded-full"
-                style={{
-                  width: 24,
-                  height: 24,
-                  background: "#F0EAD9",
-                  boxShadow:
-                    "inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 3px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.35)",
-                }}
+                className="block rounded-full bg-bone"
+                style={{ width: 22, height: 22 }}
               />
             )}
           </span>
