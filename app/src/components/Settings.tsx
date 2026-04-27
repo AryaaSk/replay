@@ -300,6 +300,59 @@ export function SettingsPane({ onClose }: Props) {
             label="auto-check for updates"
           />
         </Section>
+
+        <Section index="08" title="Storage">
+          <div className="text-2xs uppercase tracking-widest text-dust mb-3">
+            everywhere replay touches your disk
+          </div>
+          <pre className="text-2xs leading-relaxed text-ash bg-carbon/40 border border-rule p-3 overflow-x-auto whitespace-pre">
+{`~/Library/Application Support/Replay/
+├── bin/
+│   ├── screenpipe              managed binary
+│   └── mlx.metallib            metal compute lib (sibling)
+├── .screenpipe/                screenpipe's data dir
+│   ├── db.sqlite               captured events
+│   ├── data/<date>/*.jpg       frame snapshots
+│   ├── *.mp4                   audio chunks
+│   └── screenpipe.*.log        capture log
+├── replays/<ulid>/             one folder per replay
+│   ├── report.md               agent / api output
+│   ├── metadata.json           timestamps, model, cost
+│   ├── frames/*.png            key frames
+│   ├── events.json             coalesced timeline
+│   ├── audio.txt               speech transcript
+│   └── context.md              recording metadata
+├── settings.json               your prefs
+└── logs/sidecar-*.log          post-mortem logs
+
+macOS Keychain — com.aryaa.replay
+├── anthropic-api-key           BYOK (only if anthropic provider)
+└── openai-api-key              BYOK (only if openai provider)`}
+          </pre>
+
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <FolderButton
+              label="open Replay folder"
+              sub="all of the above"
+              onClick={() => void ipc.openAppFolder("root")}
+            />
+            <FolderButton
+              label="open replays/"
+              sub="saved replay bundles"
+              onClick={() => void ipc.openAppFolder("replays")}
+            />
+            <FolderButton
+              label="open screenpipe data"
+              sub="raw capture + db.sqlite"
+              onClick={() => void ipc.openAppFolder("screenpipe")}
+            />
+            <FolderButton
+              label="open logs/"
+              sub="sidecar post-mortems"
+              onClick={() => void ipc.openAppFolder("logs")}
+            />
+          </div>
+        </Section>
       </div>
     </div>
   );
@@ -431,6 +484,26 @@ function Radio({
         </button>
       ))}
     </div>
+  );
+}
+
+function FolderButton({
+  label,
+  sub,
+  onClick,
+}: {
+  label: string;
+  sub: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-start text-left px-3 py-2 border border-rule hover:border-bone hover:bg-carbon transition-colors"
+    >
+      <span className="text-xs text-bone">↗ {label}</span>
+      <span className="text-2xs uppercase tracking-widest text-dust mt-0.5">{sub}</span>
+    </button>
   );
 }
 
