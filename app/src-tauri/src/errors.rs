@@ -15,9 +15,6 @@ pub enum ReplayError {
     #[error("sqlite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 
-    #[error("checksum mismatch: expected {expected}, got {got}")]
-    ChecksumMismatch { expected: String, got: String },
-
     #[error("screenpipe binary missing: {0}")]
     BinaryMissing(String),
 
