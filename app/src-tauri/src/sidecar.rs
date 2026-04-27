@@ -23,15 +23,15 @@ pub async fn run_render(
     end_ts: &str,
     replay_id: &str,
 ) -> Result<std::path::PathBuf> {
-    let settings_json = {
+    // Snapshot settings once: cloning out of the guard frees the borrow
+    // before the enclosing block ends.
+    let settings_snapshot: Settings = {
         let state = app.state::<AppState>();
-        let s: Settings = state.settings.lock().await.clone();
-        serde_json::to_string(&s).unwrap_or_else(|_| "{}".into())
+        let cloned = state.settings.lock().await.clone();
+        cloned
     };
-    let provider = {
-        let state = app.state::<AppState>();
-        state.settings.lock().await.provider
-    };
+    let provider = settings_snapshot.provider;
+    let settings_json = serde_json::to_string(&settings_snapshot).unwrap_or_else(|_| "{}".into());
 
     let api_key = keychain::get_key(provider)?
         .ok_or(ReplayError::ApiKeyMissing)?;
