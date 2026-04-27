@@ -72,6 +72,10 @@ export const ipc = {
       frame_files: string[];
       bundle_path: string;
       report_present: boolean;
+      processing: boolean;
+      events_bytes: number;
+      audio_bytes: number;
+      context_bytes: number;
     }>("read_replay_detail", { id }).then((r): ReplayDetail => ({
       id: r.id,
       title: r.title,
@@ -85,7 +89,13 @@ export const ipc = {
       frameFiles: r.frame_files,
       bundlePath: r.bundle_path,
       reportPresent: r.report_present,
+      processing: r.processing,
+      eventsBytes: r.events_bytes,
+      audioBytes: r.audio_bytes,
+      contextBytes: r.context_bytes,
     })),
+
+  rerenderReplay: (id: string) => invoke<void>("rerender_replay", { id }),
 
   readReplayFrame: (id: string, filename: string) =>
     invoke<number[]>("read_replay_frame", { id, filename }).then((bytes) => {

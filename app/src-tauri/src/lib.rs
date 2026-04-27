@@ -114,13 +114,84 @@ async fn stop_recording(
     let (start_ts, end_ts) =
         recording::stop_recording(app.clone(), state.inner().clone()).await?;
     let initial_id = replays::new_id();
-    let render = sidecar::run_render(&app, &start_ts, &end_ts, &initial_id).await?;
+
+    // Pre-create the replay dir + stub metadata so the frontend can navigate
+    // immediately and list_replays sees the new entry with a "processing" flag.
+    let dir = paths::replays_dir()?.join(&initial_id);
+    tokio::fs::create_dir_all(&dir).await?;
+    let duration_ms = (chrono::DateTime::parse_from_rfc3339(&end_ts)
+        .map(|d| d.timestamp_millis())
+        .unwrap_or(0))
+        - (chrono::DateTime::parse_from_rfc3339(&start_ts)
+            .map(|d| d.timestamp_millis())
+            .unwrap_or(0));
+    let stub = serde_json::json!({
+        "id": initial_id,
+        "title": "(processing…)",
+        "startTs": start_ts,
+        "endTs": end_ts,
+        "durationMs": duration_ms,
+        "createdAt": chrono::Utc::now().to_rfc3339(),
+        "processing": true,
+    });
+    tokio::fs::write(dir.join("metadata.json"), serde_json::to_vec_pretty(&stub)?).await?;
+
+    // Render asynchronously: spawn it, return the initial id NOW. Frontend
+    // navigates to the preview view with this id, listens for render-complete
+    // / render-error to know when it's done. The id may change due to slug
+    // rename so render-complete carries both.
+    spawn_render_task(app, start_ts.clone(), end_ts.clone(), initial_id.clone());
+
     Ok(StopResult {
-        replay_id: render.replay_id,
-        report_path: render.report_path.display().to_string(),
+        replay_id: initial_id,
+        report_path: String::new(),
         start_ts,
         end_ts,
     })
+}
+
+/// Re-run the sidecar against an existing replay's recording window. Useful
+/// after a render crash / when the user wants to switch providers and try again
+/// over the same captured data.
+#[tauri::command]
+async fn rerender_replay(app: tauri::AppHandle, id: String) -> Result<()> {
+    let detail = replays::read_detail(&id)?;
+    // Mark the existing metadata as processing so the UI shows the loader.
+    let metadata_path = paths::replays_dir()?.join(&id).join("metadata.json");
+    if let Ok(raw) = tokio::fs::read(&metadata_path).await {
+        if let Ok(mut obj) = serde_json::from_slice::<serde_json::Value>(&raw) {
+            obj["processing"] = serde_json::Value::Bool(true);
+            let _ = tokio::fs::write(&metadata_path, serde_json::to_vec_pretty(&obj)?).await;
+        }
+    }
+    spawn_render_task(app, detail.start_ts, detail.end_ts, id);
+    Ok(())
+}
+
+fn spawn_render_task(app: tauri::AppHandle, start_ts: String, end_ts: String, id: String) {
+    tauri::async_runtime::spawn(async move {
+        match sidecar::run_render(&app, &start_ts, &end_ts, &id).await {
+            Ok(render) => {
+                let _ = app.emit(
+                    "render-complete",
+                    serde_json::json!({
+                        "initialId": id,
+                        "finalId": render.replay_id,
+                        "reportPath": render.report_path.display().to_string(),
+                    }),
+                );
+            }
+            Err(e) => {
+                let _ = app.emit(
+                    "render-error",
+                    serde_json::json!({
+                        "initialId": id,
+                        "error": e.to_string(),
+                    }),
+                );
+            }
+        }
+    });
 }
 
 #[tauri::command]
@@ -380,6 +451,7 @@ pub fn run() {
             delete_replay,
             delete_all_replays,
             wipe_all_state,
+            rerender_replay,
             get_settings,
             set_settings,
             get_capture_state,

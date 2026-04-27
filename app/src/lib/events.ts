@@ -60,3 +60,21 @@ export async function onTrayRecordToggle(
 ): Promise<UnlistenFn> {
   return listen("tray-record-toggle", () => cb());
 }
+
+export async function onRenderComplete(
+  cb: (payload: { initialId: string; finalId: string; reportPath: string }) => void,
+): Promise<UnlistenFn> {
+  return listen<{ initialId: string; finalId: string; reportPath: string }>(
+    "render-complete",
+    (e) => cb(e.payload),
+  );
+}
+
+export async function onRenderError(
+  cb: (payload: { initialId: string; error: string }) => void,
+): Promise<UnlistenFn> {
+  return listen<{ initialId: string; error: string }>(
+    "render-error",
+    (e) => cb(e.payload),
+  );
+}

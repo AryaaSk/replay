@@ -9,6 +9,8 @@ import { ipc } from "./lib/ipc";
 import {
   onCaptureStateChanged,
   onCaptureStoppedFromTray,
+  onRenderComplete,
+  onRenderError,
   onSidecarStatus,
   onTrayRecordToggle,
 } from "./lib/events";
@@ -57,6 +59,7 @@ export default function App() {
     start?: () => Promise<void>;
     stop?: () => Promise<void>;
   }>({});
+  const previewIdRef = useRef<string | null>(null);
 
   const refreshReplays = useCallback(async () => {
     const list = await ipc.listReplays();
@@ -69,6 +72,8 @@ export default function App() {
     let unsubSidecar: (() => void) | undefined;
     let unsubTray: (() => void) | undefined;
     let unsubTrayToggle: (() => void) | undefined;
+    let unsubRenderComplete: (() => void) | undefined;
+    let unsubRenderError: (() => void) | undefined;
 
     (async () => {
       try {
@@ -136,6 +141,19 @@ export default function App() {
       unsubTray = await onCaptureStoppedFromTray(() => {
         void ipc.getCaptureState().then(setCaptureState);
       });
+      unsubRenderComplete = await onRenderComplete(async ({ initialId, finalId }) => {
+        // Swap the preview's id if the slug rename changed it.
+        if (previewIdRef.current === initialId && initialId !== finalId) {
+          setPreviewId(finalId);
+        }
+        await refreshReplays();
+      });
+      unsubRenderError = await onRenderError(({ error: msg }) => {
+        // The PreviewPane listens to this too via its own subscription, so
+        // we only set the global error if no preview is open (eg user is
+        // already back on the main view).
+        if (!previewIdRef.current) setError(msg);
+      });
       unsubTrayToggle = await onTrayRecordToggle(async () => {
         // Use the same code paths as the in-app Record button so permission
         // checks, key checks, busy state, and preview rendering all work.
@@ -155,6 +173,8 @@ export default function App() {
       unsubSidecar?.();
       unsubTray?.();
       unsubTrayToggle?.();
+      unsubRenderComplete?.();
+      unsubRenderError?.();
     };
   }, [refreshReplays]);
 
@@ -211,16 +231,24 @@ export default function App() {
   // once at mount. Updated every render via the effect below.
   useEffect(() => {
     handlersRef.current = { start: handleStart, stop: handleStop };
+    previewIdRef.current = previewId;
   });
 
   const handleStop = async () => {
     setError(null);
-    setBusy("Processing recording…");
+    // Set busy IMMEDIATELY so the RecordButton timer freezes the instant the
+    // user clicks Stop — the Rust stop_recording call waits ~1s for the
+    // screenpipe audio flush, and during that wait recording_start is still
+    // set, so without this the timer would keep ticking.
+    setBusy("stopping…");
     try {
+      // Backend spawns the render in the background and returns the initial
+      // replay id immediately. Navigate to the preview at once; PreviewPane
+      // shows the processing UI and listens for render-complete.
       const result = await ipc.stopRecording();
-      setBusy(null);
       setPreviewId(result.replay_id);
       setView("preview");
+      setBusy(null);
       await refreshReplays();
     } catch (e) {
       setError(String(e));
@@ -312,7 +340,11 @@ export default function App() {
         <InstallModal onDone={() => setNeedsInstall(false)} />
       ) : null}
       {view === "preview" && previewId ? (
-        <PreviewPane replayId={previewId} onClose={() => setView("main")} />
+        <PreviewPane
+          replayId={previewId}
+          onClose={() => setView("main")}
+          onIdChange={(newId) => setPreviewId(newId)}
+        />
       ) : null}
       {view === "settings" ? (
         <SettingsPane onClose={() => setView("main")} />

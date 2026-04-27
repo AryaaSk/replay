@@ -168,6 +168,12 @@ pub struct ReplayDetail {
     pub frame_files: Vec<String>,
     pub bundle_path: String,
     pub report_present: bool,
+    pub processing: bool,
+    /// Sizes of the staged input files. Lets the UI show "captured: 12 KB
+    /// events.json, 0 B audio.txt, 5 frames" while we wait for the model.
+    pub events_bytes: u64,
+    pub audio_bytes: u64,
+    pub context_bytes: u64,
 }
 
 pub fn read_detail(id: &str) -> Result<ReplayDetail> {
@@ -209,6 +215,10 @@ pub fn read_detail(id: &str) -> Result<ReplayDetail> {
     }
     .to_string();
 
+    let bytes_of = |name: &str| -> u64 {
+        std::fs::metadata(dir.join(name)).map(|m| m.len()).unwrap_or(0)
+    };
+
     Ok(ReplayDetail {
         id: id.to_string(),
         title: parsed
@@ -238,6 +248,13 @@ pub fn read_detail(id: &str) -> Result<ReplayDetail> {
         frame_files,
         bundle_path: dir.display().to_string(),
         report_present: dir.join("report.md").exists(),
+        processing: parsed
+            .get("processing")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        events_bytes: bytes_of("events.json"),
+        audio_bytes: bytes_of("audio.txt"),
+        context_bytes: bytes_of("context.md"),
     })
 }
 

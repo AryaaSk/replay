@@ -1,10 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { ipc } from "../lib/ipc";
-import type { ReplayDetail } from "@shared/types";
+import {
+  onRenderComplete,
+  onRenderError,
+  onSidecarStatus,
+} from "../lib/events";
+import type { ReplayDetail, SidecarEvent } from "@shared/types";
 
 interface Props {
   replayId: string;
   onClose: () => void;
+  onIdChange?: (newId: string) => void;
+}
+
+function fmtBytes(n: number): string {
+  if (n === 0) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
 function fmtClock(iso: string): string {
@@ -27,25 +40,65 @@ function fmtDuration(ms: number): string {
   return `${mm}:${ss}`;
 }
 
-export function PreviewPane({ replayId, onClose }: Props) {
+export function PreviewPane({ replayId, onClose, onIdChange }: Props) {
   const [markdown, setMarkdown] = useState<string>("");
   const [detail, setDetail] = useState<ReplayDetail | null>(null);
   const [frameUrls, setFrameUrls] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [statusFeed, setStatusFeed] = useState<SidecarEvent[]>([]);
+  const [renderError, setRenderError] = useState<string | null>(null);
+
+  // Reload detail + report on mount, on replayId change, and after render-complete.
+  const reload = (id: string) => {
+    void ipc.readReplayDetail(id).then(setDetail);
+    void ipc
+      .readReplay(id)
+      .then(setMarkdown)
+      .catch(() => setMarkdown("")); // report.md may not exist yet during processing
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    void Promise.all([ipc.readReplay(replayId), ipc.readReplayDetail(replayId)]).then(
-      ([md, d]) => {
-        if (cancelled) return;
-        setMarkdown(md);
-        setDetail(d);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
+    setMarkdown("");
+    setDetail(null);
+    setStatusFeed([]);
+    setRenderError(null);
+    reload(replayId);
   }, [replayId]);
+
+  // Subscribe to sidecar status + render-complete / render-error so we can
+  // (a) show progress while we wait and (b) refresh once the render lands.
+  useEffect(() => {
+    let unsubStatus: (() => void) | undefined;
+    let unsubComplete: (() => void) | undefined;
+    let unsubError: (() => void) | undefined;
+    (async () => {
+      unsubStatus = await onSidecarStatus((evt) => {
+        setStatusFeed((prev) => [...prev.slice(-9), evt]);
+      });
+      unsubComplete = await onRenderComplete(({ initialId, finalId }) => {
+        if (initialId === replayId || finalId === replayId) {
+          setStatusFeed([]);
+          setRenderError(null);
+          if (initialId !== finalId && initialId === replayId) {
+            onIdChange?.(finalId);
+          } else {
+            reload(replayId);
+          }
+        }
+      });
+      unsubError = await onRenderError(({ initialId, error: msg }) => {
+        if (initialId === replayId) {
+          setRenderError(msg);
+          reload(replayId);
+        }
+      });
+    })();
+    return () => {
+      unsubStatus?.();
+      unsubComplete?.();
+      unsubError?.();
+    };
+  }, [replayId, onIdChange]);
 
   // Lazy-load frame blobs once we know which files exist.
   useEffect(() => {
@@ -101,6 +154,19 @@ export function PreviewPane({ replayId, onClose }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setRenderError(null);
+              setStatusFeed([]);
+              await ipc.rerenderReplay(replayId);
+              reload(replayId);
+            }}
+            disabled={detail?.processing}
+            className="btn-secondary disabled:opacity-50"
+            title="Re-run the LLM render over the same captured data"
+          >
+            ↻ re-render
+          </button>
           <button onClick={() => void ipc.openReplayDir(replayId)} className="btn-secondary">
             ↗ folder
           </button>
@@ -119,6 +185,21 @@ export function PreviewPane({ replayId, onClose }: Props) {
             </h1>
             <MetaGrid detail={detail} />
           </div>
+
+          {/* Processing state (and re-render banner if errored) */}
+          {detail?.processing || renderError ? (
+            <ProcessingPanel
+              detail={detail}
+              statusFeed={statusFeed}
+              error={renderError}
+              onRerender={async () => {
+                setRenderError(null);
+                setStatusFeed([]);
+                await ipc.rerenderReplay(replayId);
+                reload(replayId);
+              }}
+            />
+          ) : null}
 
           {/* Frames contact-sheet */}
           {detail && detail.frameFiles.length > 0 ? (
@@ -199,6 +280,116 @@ function MetaGrid({ detail }: { detail: ReplayDetail | null }) {
         label="cost"
         value={detail.estimatedCostUSD > 0 ? `$${detail.estimatedCostUSD.toFixed(4)}` : "—"}
       />
+    </div>
+  );
+}
+
+function ProcessingPanel({
+  detail,
+  statusFeed,
+  error,
+  onRerender,
+}: {
+  detail: ReplayDetail | null;
+  statusFeed: SidecarEvent[];
+  error: string | null;
+  onRerender: () => void | Promise<void>;
+}) {
+  const phaseLabel = (e: SidecarEvent): string => {
+    switch (e.event) {
+      case "reading_db":
+        return `reading capture db · ${e.rows} rows`;
+      case "coalesced":
+        return `coalesced · ${e.events} events`;
+      case "frames_picked":
+        return `picked ${e.count} key frames`;
+      case "redactions":
+        return `redacted ${e.text} text · ${e.image} image regions`;
+      case "calling_anthropic":
+        return `running ${e.model}`;
+      case "complete":
+        return `complete · ${(e.durationMs / 1000).toFixed(1)}s`;
+      case "error":
+        return `error · ${e.message}`;
+    }
+  };
+
+  return (
+    <div className="brackets p-4 bg-carbon/40">
+      <div className="section-label mb-3">
+        <span className="num">~</span>
+        <span className="flex-1 border-b border-rule h-2" />
+        <span className={error ? "text-ember tracking-[0.2em]" : "text-bone tracking-[0.2em]"}>
+          {error ? "render failed" : "processing"}
+        </span>
+      </div>
+
+      {error ? (
+        <>
+          <div className="text-2xs text-ember mb-3 leading-relaxed">▲ {error}</div>
+          <button onClick={() => void onRerender()} className="btn-primary">
+            ↻ re-render
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="text-xs text-ash mb-3 animate-tick">
+            ▮ the agent is reading your capture and writing report.md
+          </div>
+
+          {/* Captured raw-data files */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-2xs mb-4">
+            <FileRow
+              label="events.json"
+              status={detail?.eventsBytes ? fmtBytes(detail.eventsBytes) : "pending"}
+            />
+            <FileRow
+              label="audio.txt"
+              status={
+                detail
+                  ? detail.audioBytes > 0
+                    ? fmtBytes(detail.audioBytes)
+                    : "no audio"
+                  : "pending"
+              }
+            />
+            <FileRow
+              label="context.md"
+              status={detail?.contextBytes ? fmtBytes(detail.contextBytes) : "pending"}
+            />
+            <FileRow
+              label="frames/"
+              status={detail ? `${detail.frameFiles.length} png` : "pending"}
+            />
+          </div>
+
+          {/* Live agent status feed */}
+          {statusFeed.length > 0 ? (
+            <div className="border-t border-rule pt-3 space-y-1">
+              {statusFeed.map((e, i) => (
+                <div
+                  key={i}
+                  className={[
+                    "font-mono text-2xs tabular-nums",
+                    i === statusFeed.length - 1 ? "text-bone" : "text-dust",
+                  ].join(" ")}
+                >
+                  · {phaseLabel(e)}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FileRow({ label, status }: { label: string; status: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-rule/60 pb-1">
+      <span className="font-mono text-bone">{label}</span>
+      <span className="text-dust uppercase tracking-widest">{status}</span>
     </div>
   );
 }

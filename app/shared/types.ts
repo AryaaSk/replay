@@ -177,6 +177,10 @@ export interface ReplayDetail {
   frameFiles: string[];
   bundlePath: string;
   reportPresent: boolean;
+  processing: boolean;
+  eventsBytes: number;
+  audioBytes: number;
+  contextBytes: number;
 }
 
 // Sidecar status events streamed over stdout, one JSON object per line.
