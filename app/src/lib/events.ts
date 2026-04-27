@@ -66,3 +66,9 @@ export async function onTrayStopError(
 ): Promise<UnlistenFn> {
   return listen<string>("tray-stop-error", (e) => cb(e.payload));
 }
+
+export async function onTrayStopStarted(
+  cb: () => void,
+): Promise<UnlistenFn> {
+  return listen("tray-stop-started", () => cb());
+}

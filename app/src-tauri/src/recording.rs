@@ -136,23 +136,33 @@ pub async fn start_recording(app: AppHandle, state: AppState) -> Result<String> 
 
 /// Returns (startTs, endTs).
 pub async fn stop_recording(app: AppHandle, state: AppState) -> Result<(String, String)> {
-    let start = {
-        let mut current = state.recording_start.lock().await;
-        current.take().ok_or(ReplayError::NotRecording)?
-    };
+    // Snapshot start without consuming yet — keeping recording_start set
+    // through the flush window means the dual-indicator stays in REC
+    // state instead of flickering to BUF for 3s.
+    let start = state
+        .recording_start
+        .lock()
+        .await
+        .clone()
+        .ok_or(ReplayError::NotRecording)?;
     let end = Utc::now().to_rfc3339();
 
     let mode = *state.mode.lock().await;
     if matches!(mode, CaptureMode::Fresh) {
-        // Cold-spawn: kill the child after a short flush window so trailing audio
-        // chunks land in the DB. With --audio-chunk-duration 5 and
-        // --transcription-mode realtime, ~3s is comfortable.
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        // Cold-spawn: short flush window so trailing audio chunks land in
+        // the DB before the child dies. With --audio-chunk-duration 5 and
+        // --transcription-mode realtime, ~1s is comfortable; 3s was
+        // overkill and made the UI feel laggy.
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
         let mut guard = state.screenpipe_child.lock().await;
         if let Some(child) = guard.take() {
             kill_child(child).await?;
         }
     }
+
+    // NOW clear recording_start, after the child is dead. Indicator
+    // transitions cleanly: REC → STANDBY (fresh) or REC → BUF (always-warm).
+    *state.recording_start.lock().await = None;
 
     crate::events::broadcast(&app, &state).await;
     if let Err(e) = app.emit("recording-stopped", &(start.clone(), end.clone())) {

@@ -54,6 +54,9 @@ pub fn install(app: &AppHandle) -> Result<()> {
                     let recording_active = state.recording_start.lock().await.is_some();
 
                     if recording_active {
+                        // Tell the frontend processing is starting so it can
+                        // show the busy spinner, exactly like the in-app stop.
+                        let _ = app_clone.emit("tray-stop-started", ());
                         match crate::recording::stop_recording(app_clone.clone(), state.inner().clone()).await {
                             Ok((start_ts, end_ts)) => {
                                 let id = crate::replays::new_id();

@@ -12,6 +12,7 @@ import {
   onSidecarStatus,
   onTrayReplayRendered,
   onTrayStopError,
+  onTrayStopStarted,
 } from "./lib/events";
 import type { CaptureState, PermissionsReport, ReplaySummary, SidecarEvent } from "@shared/types";
 
@@ -63,6 +64,7 @@ export default function App() {
     let unsubTray: (() => void) | undefined;
     let unsubTrayRendered: (() => void) | undefined;
     let unsubTrayError: (() => void) | undefined;
+    let unsubTrayStarted: (() => void) | undefined;
 
     (async () => {
       try {
@@ -131,11 +133,18 @@ export default function App() {
         void ipc.getCaptureState().then(setCaptureState);
       });
       unsubTrayRendered = await onTrayReplayRendered(async (id) => {
+        setBusy(null);
         await refreshReplays();
         setPreviewId(id);
         setView("preview");
       });
-      unsubTrayError = await onTrayStopError((msg) => setError(msg));
+      unsubTrayError = await onTrayStopError((msg) => {
+        setBusy(null);
+        setError(msg);
+      });
+      unsubTrayStarted = await onTrayStopStarted(() => {
+        setBusy("Processing recording…");
+      });
     })();
     return () => {
       unsubCapture?.();
@@ -143,6 +152,7 @@ export default function App() {
       unsubTray?.();
       unsubTrayRendered?.();
       unsubTrayError?.();
+      unsubTrayStarted?.();
     };
   }, [refreshReplays]);
 
