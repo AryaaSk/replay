@@ -218,6 +218,26 @@ async fn open_replay_dir(id: String) -> Result<()> {
     Ok(())
 }
 
+/// Opens one of the well-known Replay-managed directories in Finder.
+/// kind: "root" | "replays" | "screenpipe" | "logs"
+#[tauri::command]
+async fn open_app_folder(kind: String) -> Result<()> {
+    let path = match kind.as_str() {
+        "root" => paths::app_support_dir()?,
+        "replays" => paths::replays_dir()?,
+        "screenpipe" => paths::screenpipe_data_dir()?,
+        "logs" => paths::logs_dir()?,
+        other => {
+            return Err(ReplayError::Internal(format!(
+                "unknown folder kind: {other}"
+            )));
+        }
+    };
+    paths::ensure_dirs()?; // create if missing so Finder doesn't error
+    let _ = std::process::Command::new("open").arg(&path).spawn();
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -251,6 +271,7 @@ pub fn run() {
             agent_status,
             quit_capturing,
             open_replay_dir,
+            open_app_folder,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

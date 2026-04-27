@@ -175,4 +175,7 @@ export const ipc = {
   quitCapturing: () => invoke<void>("quit_capturing"),
 
   openReplayDir: (id: string) => invoke<void>("open_replay_dir", { id }),
+
+  openAppFolder: (kind: "root" | "replays" | "screenpipe" | "logs") =>
+    invoke<void>("open_app_folder", { kind }),
 };

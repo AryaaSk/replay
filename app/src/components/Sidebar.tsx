@@ -1,3 +1,4 @@
+import { ipc } from "../lib/ipc";
 import type { ReplaySummary } from "@shared/types";
 
 interface Props {
@@ -49,7 +50,11 @@ export function Sidebar({ open, replays, onClose, onOpen, onDelete }: Props) {
         ].join(" ")}
       >
         <div className="h-12 flex items-center justify-between px-4 border-b border-rule shrink-0">
-          <button onClick={onClose} className="text-ash hover:text-bone text-xl leading-none">
+          <button
+            onClick={onClose}
+            aria-label="Close ledger"
+            className="text-ash hover:text-bone text-xl leading-none"
+          >
             ‹
           </button>
           <div className="flex items-baseline gap-3">
@@ -58,6 +63,14 @@ export function Sidebar({ open, replays, onClose, onOpen, onDelete }: Props) {
               {String(replays.length).padStart(3, "0")} entries
             </span>
           </div>
+          <button
+            onClick={() => void ipc.openAppFolder("replays")}
+            aria-label="Open replays folder in Finder"
+            title="Open replays folder"
+            className="text-ash hover:text-bone text-base leading-none"
+          >
+            ↗
+          </button>
         </div>
 
         <div className="flex-1 overflow-auto">
