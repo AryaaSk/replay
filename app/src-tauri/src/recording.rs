@@ -107,18 +107,18 @@ pub async fn start_recording(app: AppHandle, state: AppState) -> Result<String> 
     }
 
     if matches!(mode, CaptureMode::Fresh) {
-        // Cold-spawn: start screenpipe AND wait for it to be live before
-        // bookmarking the recording start. screenpipe takes ~1-2s to begin
-        // capturing after process spawn — if we set recording_start at spawn
-        // time, the first ~2s of the "recording" actually captures nothing.
+        // Cold-spawn: start screenpipe AND wait for it to actually begin
+        // capturing before bookmarking the recording start. We poll the DB
+        // for a new frame after the spawn moment — when we see one, we know
+        // capture is live. Fall back to a hard 5s ceiling so a broken DB
+        // doesn't hang the user forever.
         let mut guard = state.screenpipe_child.lock().await;
         if guard.is_none() {
+            let spawn_marker = chrono::Utc::now().to_rfc3339();
             *guard = Some(spawn_screenpipe(&state).await?);
             drop(guard);
             crate::events::broadcast(&app, &state).await;
-            // Brief warmup. Could be smarter (poll the DB until first row
-            // appears) but a fixed delay is honest enough for v0.
-            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            wait_for_capture_live(&spawn_marker).await;
         }
     }
     // In always-warm mode, the child already exists and capture is already
@@ -159,6 +159,48 @@ pub async fn stop_recording(app: AppHandle, state: AppState) -> Result<(String, 
         log::warn!("emit recording-stopped failed: {e}");
     }
     Ok((start, end))
+}
+
+/// Polls screenpipe's DB until a frame with timestamp >= `since_iso` appears,
+/// or up to 5 seconds total. Returns either way — the caller bookmarks
+/// recording_start regardless, but the polling means we wait the *right*
+/// amount of time on each machine instead of a fixed 1.5s guess.
+async fn wait_for_capture_live(since_iso: &str) {
+    use std::time::{Duration, Instant};
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let db_path = match crate::paths::screenpipe_db_path() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    loop {
+        if Instant::now() >= deadline {
+            return;
+        }
+        if frame_appeared_since(&db_path, since_iso) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+fn frame_appeared_since(db_path: &std::path::Path, since_iso: &str) -> bool {
+    if !db_path.exists() {
+        return false;
+    }
+    let conn = match rusqlite::Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let _ = conn.busy_timeout(std::time::Duration::from_millis(200));
+    let count: rusqlite::Result<i64> = conn.query_row(
+        "SELECT COUNT(*) FROM frames WHERE timestamp >= ?1",
+        rusqlite::params![since_iso],
+        |row| row.get(0),
+    );
+    matches!(count, Ok(n) if n > 0)
 }
 
 pub async fn kill_child(mut child: Child) -> Result<()> {
