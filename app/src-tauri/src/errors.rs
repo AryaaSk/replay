@@ -39,9 +39,6 @@ pub enum ReplayError {
     #[error("sidecar: {0}")]
     Sidecar(String),
 
-    #[error("invalid state: {0}")]
-    InvalidState(String),
-
     #[error("internal: {0}")]
     Internal(String),
 }

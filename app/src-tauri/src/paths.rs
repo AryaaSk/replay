@@ -37,10 +37,6 @@ pub fn settings_path() -> Result<PathBuf> {
     Ok(app_support_dir()?.join("settings.json"))
 }
 
-pub fn redact_rules_path() -> Result<PathBuf> {
-    Ok(app_support_dir()?.join("redact-rules.json"))
-}
-
 pub fn logs_dir() -> Result<PathBuf> {
     Ok(app_support_dir()?.join("logs"))
 }

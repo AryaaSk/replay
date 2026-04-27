@@ -19,7 +19,10 @@ struct Range {
 }
 
 pub fn spawn(app: AppHandle, state: AppState) {
-    tokio::spawn(async move {
+    // Use Tauri's async runtime — `tokio::spawn` would panic here because
+    // `setup` is called synchronously before any user-managed tokio runtime
+    // exists. Tauri's runtime is already running by setup time.
+    tauri::async_runtime::spawn(async move {
         let mut tick_count: u64 = 0;
         loop {
             tokio::time::sleep(TICK).await;
