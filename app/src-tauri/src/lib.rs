@@ -79,11 +79,11 @@ async fn stop_recording(
 ) -> Result<StopResult> {
     let (start_ts, end_ts) =
         recording::stop_recording(app.clone(), state.inner().clone()).await?;
-    let id = replays::new_id();
-    let report_path = sidecar::run_render(&app, &start_ts, &end_ts, &id).await?;
+    let initial_id = replays::new_id();
+    let render = sidecar::run_render(&app, &start_ts, &end_ts, &initial_id).await?;
     Ok(StopResult {
-        replay_id: id,
-        report_path: report_path.display().to_string(),
+        replay_id: render.replay_id,
+        report_path: render.report_path.display().to_string(),
         start_ts,
         end_ts,
     })

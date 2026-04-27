@@ -97,7 +97,7 @@ export function PreviewPane({ replayId, onClose }: Props) {
           </button>
           <span className="text-2xs uppercase tracking-[0.3em] text-dust">replay</span>
           <span className="font-mono text-xs text-ash truncate">
-            {replayId.slice(-12).toLowerCase()}
+            {replayId}
           </span>
         </div>
         <div className="flex items-center gap-2">

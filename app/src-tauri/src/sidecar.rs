@@ -13,16 +13,23 @@ pub struct SidecarLine {
     pub line: String,
 }
 
+pub struct RenderResult {
+    pub replay_id: String,
+    pub report_path: std::path::PathBuf,
+}
+
 /// Spawn the bundled `replay-cli` sidecar and stream its stdout (one JSON object
 /// per line) back to the frontend via the `sidecar-status` event.
 ///
-/// Returns the path to the produced report.md once the sidecar exits successfully.
+/// Returns the FINAL replay id and report path. The sidecar may rename its
+/// output dir to a title-derived slug, so the returned id can differ from
+/// the ULID we passed in.
 pub async fn run_render(
     app: &AppHandle,
     start_ts: &str,
     end_ts: &str,
     replay_id: &str,
-) -> Result<std::path::PathBuf> {
+) -> Result<RenderResult> {
     // Snapshot settings once: cloning out of the guard frees the borrow
     // before the enclosing block ends.
     let settings_snapshot: Settings = {
@@ -102,6 +109,12 @@ pub async fn run_render(
 
     let mut stderr_buf = String::new();
     let mut last_error_event: Option<String> = None;
+    // Sidecar may rename its output dir to a title-derived slug. Capture the
+    // final id from its `complete` event so we hand the right name back to
+    // the caller (otherwise we'd return the ULID and lose track of the
+    // renamed dir).
+    let mut final_id: Option<String> = None;
+    let mut final_report_path: Option<String> = None;
 
     while let Some(event) = rx.recv().await {
         match event {
@@ -113,10 +126,21 @@ pub async fn run_render(
                 let line = String::from_utf8_lossy(&bytes).to_string();
                 for one in line.split('\n').filter(|s| !s.trim().is_empty()) {
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(one) {
-                        if parsed.get("event").and_then(|v| v.as_str()) == Some("error") {
-                            if let Some(m) = parsed.get("message").and_then(|v| v.as_str()) {
-                                last_error_event = Some(m.to_string());
+                        match parsed.get("event").and_then(|v| v.as_str()) {
+                            Some("error") => {
+                                if let Some(m) = parsed.get("message").and_then(|v| v.as_str()) {
+                                    last_error_event = Some(m.to_string());
+                                }
                             }
+                            Some("complete") => {
+                                if let Some(rid) = parsed.get("replayId").and_then(|v| v.as_str()) {
+                                    final_id = Some(rid.to_string());
+                                }
+                                if let Some(rp) = parsed.get("reportPath").and_then(|v| v.as_str()) {
+                                    final_report_path = Some(rp.to_string());
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     if let Err(e) = app.emit("sidecar-status", SidecarLine { line: one.into() }) {
@@ -170,5 +194,13 @@ pub async fn run_render(
         }
     }
 
-    Ok(out_dir.join("report.md"))
+    let final_id = final_id.unwrap_or_else(|| replay_id.to_string());
+    let report_path = final_report_path
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| out_dir.join("report.md"));
+
+    Ok(RenderResult {
+        replay_id: final_id,
+        report_path,
+    })
 }

@@ -59,10 +59,10 @@ pub fn install(app: &AppHandle) -> Result<()> {
                         let _ = app_clone.emit("tray-stop-started", ());
                         match crate::recording::stop_recording(app_clone.clone(), state.inner().clone()).await {
                             Ok((start_ts, end_ts)) => {
-                                let id = crate::replays::new_id();
-                                match crate::sidecar::run_render(&app_clone, &start_ts, &end_ts, &id).await {
-                                    Ok(_) => {
-                                        let _ = app_clone.emit("tray-replay-rendered", &id);
+                                let initial_id = crate::replays::new_id();
+                                match crate::sidecar::run_render(&app_clone, &start_ts, &end_ts, &initial_id).await {
+                                    Ok(render) => {
+                                        let _ = app_clone.emit("tray-replay-rendered", &render.replay_id);
                                     }
                                     Err(e) => {
                                         log::error!("tray render failed: {e}");

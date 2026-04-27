@@ -9,7 +9,7 @@ import type { Provider } from "./describe/types.js";
 import { openReadOnly, readRange } from "./reader/db.js";
 import { redactSecrets } from "./redact/secrets.js";
 import { findRegionsToBlur, parseOcrBoxes } from "./redact/ocr.js";
-import { writeBundle, inferTitle } from "./output/bundle.js";
+import { writeBundle, inferTitle, renameToSlug } from "./output/bundle.js";
 import { emit, logErr } from "./lib/log.js";
 import Database from "better-sqlite3";
 import { promises as fs } from "node:fs";
@@ -203,10 +203,15 @@ async function main(): Promise<void> {
     title,
   });
 
+  // Best-effort: rename the bundle dir from <ulid>/ to a slug derived from
+  // the report title. Falls back to the ULID on any error so replays always
+  // exist on disk somewhere.
+  const renamed = await renameToSlug(args.out, title, args.replayId);
+
   emit({
     event: "complete",
-    replayId: args.replayId,
-    reportPath: join(args.out, "report.md"),
+    replayId: renamed.id,
+    reportPath: join(renamed.path, "report.md"),
     durationMs: Date.now() - t0,
   });
 }
