@@ -93,6 +93,10 @@ export const ipc = {
 
   deleteReplay: (id: string) => invoke<void>("delete_replay", { id }),
 
+  deleteAllReplays: () => invoke<number>("delete_all_replays"),
+
+  wipeAllState: () => invoke<void>("wipe_all_state"),
+
   getSettings: () =>
     invoke<{
       always_warm: boolean;

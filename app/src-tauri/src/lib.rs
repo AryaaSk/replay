@@ -114,6 +114,75 @@ async fn delete_replay(id: String) -> Result<()> {
 }
 
 #[tauri::command]
+async fn delete_all_replays() -> Result<u32> {
+    replays::delete_all()
+}
+
+/// Nuclear reset: stops capture if running, wipes the entire Replay-managed
+/// disk state including replays, screenpipe data, sidecar logs, and Claude
+/// Code session transcripts that match Replay paths. Keychain entries and
+/// settings are preserved.
+#[tauri::command]
+async fn wipe_all_state(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<()> {
+    // Kill any running screenpipe child first
+    if let Some(child) = state.screenpipe_child.lock().await.take() {
+        let _ = recording::kill_child(child).await;
+    }
+    *state.recording_start.lock().await = None;
+    *state.mode.lock().await = CaptureMode::Fresh;
+
+    replays::delete_all()?;
+
+    // Wipe screenpipe data dir (everything except the dir itself)
+    let sp_dir = paths::screenpipe_data_dir()?;
+    if sp_dir.exists() {
+        for entry in std::fs::read_dir(&sp_dir).map_err(|e| {
+            ReplayError::Internal(format!("read_dir({}): {e}", sp_dir.display()))
+        })? {
+            let entry = entry.map_err(|e| ReplayError::Internal(format!("read_dir entry: {e}")))?;
+            let p = entry.path();
+            if p.is_dir() {
+                let _ = std::fs::remove_dir_all(&p);
+            } else {
+                let _ = std::fs::remove_file(&p);
+            }
+        }
+    }
+
+    // Wipe sidecar logs
+    let logs_dir = paths::logs_dir()?;
+    if logs_dir.exists() {
+        for entry in std::fs::read_dir(&logs_dir).map_err(|e| {
+            ReplayError::Internal(format!("read_dir({}): {e}", logs_dir.display()))
+        })? {
+            if let Ok(e) = entry {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+
+    // Wipe Claude Code session transcripts that match Replay paths.
+    // Path encoding: ~/.claude/projects/-Users-...-Replay-replays-<id>/
+    if let Ok(home) = std::env::var("HOME") {
+        let projects = std::path::Path::new(&home).join(".claude").join("projects");
+        if projects.exists() {
+            if let Ok(read) = std::fs::read_dir(&projects) {
+                for entry in read.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.contains("Replay-replays") {
+                            let _ = std::fs::remove_dir_all(entry.path());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    crate::events::broadcast(&app, &state.inner().clone()).await;
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_settings(state: tauri::State<'_, AppState>) -> Result<Settings> {
     Ok(state.settings.lock().await.clone())
 }
@@ -263,6 +332,8 @@ pub fn run() {
             read_replay_detail,
             read_replay_frame,
             delete_replay,
+            delete_all_replays,
+            wipe_all_state,
             get_settings,
             set_settings,
             get_capture_state,

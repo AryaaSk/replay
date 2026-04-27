@@ -7,11 +7,21 @@ interface Props {
 
 export function Header({ captureState, onOpenSettings }: Props) {
   const mode = captureState?.mode ?? "fresh";
-  const capturing = captureState?.capturing ?? false;
+  const screenpipeAlive = captureState?.capturing ?? false;
+  const actuallyRecording = captureState?.recordingStart != null;
+
+  // Three-state ladder, mutually exclusive — most-specific wins:
+  //   recording > buffering (always-warm idle) > standby
+  const state: "recording" | "buffering" | "standby" =
+    actuallyRecording
+      ? "recording"
+      : screenpipeAlive
+      ? "buffering"
+      : "standby";
 
   return (
     <div className="titlebar h-12 flex items-stretch justify-between border-b border-rule bg-carbon/40 select-none">
-      {/* Left: brand mark + REC indicator */}
+      {/* Left: brand mark + state chip */}
       <div className="flex items-center gap-3 pl-4 pr-3">
         <div className="flex items-baseline gap-2">
           <span className="font-mono text-sm font-semibold tracking-tight text-bone">
@@ -19,12 +29,7 @@ export function Header({ captureState, onOpenSettings }: Props) {
           </span>
           <span className="font-mono text-2xs text-dust">v0.1</span>
         </div>
-        {capturing ? (
-          <div className="chip chip-live animate-pulse-rec">
-            <span className="w-1.5 h-1.5 rounded-full bg-ember" />
-            REC
-          </div>
-        ) : null}
+        <StateChip state={state} />
       </div>
 
       {/* Right: single button — mode chip + settings icon merged */}
@@ -45,6 +50,30 @@ export function Header({ captureState, onOpenSettings }: Props) {
       </button>
     </div>
   );
+}
+
+function StateChip({ state }: { state: "recording" | "buffering" | "standby" }) {
+  if (state === "recording") {
+    return (
+      <div className="chip chip-live animate-pulse-rec" title="actively recording for replay">
+        <span className="w-1.5 h-1.5 rounded-full bg-ember" />
+        REC
+      </div>
+    );
+  }
+  if (state === "buffering") {
+    return (
+      <div
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs uppercase tracking-widest border border-grit text-ash"
+        title="screenpipe is capturing into the look-back buffer (always-warm)"
+      >
+        <span className="w-1.5 h-1.5 rounded-full border border-ash" />
+        BUF
+      </div>
+    );
+  }
+  // standby — show nothing; absence is the indicator
+  return null;
 }
 
 function SettingsIcon() {

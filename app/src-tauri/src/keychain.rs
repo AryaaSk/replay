@@ -1,7 +1,11 @@
 use crate::errors::{ReplayError, Result};
 use crate::state::Provider;
 
-const SERVICE: &str = "com.aryaa.replay";
+// Keychain service identifier — matches the app's bundle identifier in
+// tauri.conf.json. Per-user isolation is provided by macOS's login keychain
+// (each user's keychain is separate); this string identifies the APP, not
+// the user.
+const SERVICE: &str = "app.replay";
 
 /// Returns the keychain account name for BYOK providers, or an Err for local
 /// agents (which don't use Replay-managed keys). All callers in lib.rs already

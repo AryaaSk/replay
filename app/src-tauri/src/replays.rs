@@ -92,7 +92,61 @@ pub fn delete(id: &str) -> Result<()> {
     if path.exists() {
         std::fs::remove_dir_all(&path)?;
     }
+    // Also remove the matching Claude Code session transcript dir, if any.
+    if let Ok(home) = std::env::var("HOME") {
+        let projects = std::path::Path::new(&home).join(".claude").join("projects");
+        if projects.exists() {
+            if let Ok(read) = std::fs::read_dir(&projects) {
+                for entry in read.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.contains("Replay-replays") && name.ends_with(id) {
+                            let _ = std::fs::remove_dir_all(entry.path());
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
+}
+
+/// Removes every replay folder. Returns the count deleted.
+pub fn delete_all() -> Result<u32> {
+    let dir = paths::replays_dir()?;
+    if !dir.exists() {
+        return Ok(0);
+    }
+    let mut count = 0u32;
+    for entry in std::fs::read_dir(&dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            if let Err(e) = std::fs::remove_dir_all(&path) {
+                log::warn!("delete_all: rm {} failed: {e}", path.display());
+                continue;
+            }
+            count += 1;
+        } else {
+            // .DS_Store etc.
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+    // Also wipe matching Claude Code session transcript dirs.
+    if let Ok(home) = std::env::var("HOME") {
+        let projects = std::path::Path::new(&home).join(".claude").join("projects");
+        if projects.exists() {
+            if let Ok(read) = std::fs::read_dir(&projects) {
+                for entry in read.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.contains("Replay-replays") {
+                            let _ = std::fs::remove_dir_all(entry.path());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(count)
 }
 
 pub fn read_report(id: &str) -> Result<String> {

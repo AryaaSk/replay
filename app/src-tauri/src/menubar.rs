@@ -87,24 +87,43 @@ pub fn install(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-/// Swap the tray icon based on whether screenpipe is currently capturing.
+#[derive(Debug, Clone, Copy)]
+pub enum TrayState {
+    Standby,    // screenpipe not running
+    Buffering,  // screenpipe alive, no active recording (always-warm)
+    Recording,  // user is bracketing a window
+}
+
+/// Swap the tray icon based on the three-state ladder.
 /// Called from `events::broadcast` so it stays in lockstep with the frontend.
-pub fn set_capturing(app: &AppHandle, capturing: bool) {
+pub fn set_state(app: &AppHandle, state: TrayState) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return;
     };
-    let bytes = if capturing { CAPTURING_PNG } else { IDLE_PNG };
+    // For now we only have two PNG assets (idle ring + filled red dot).
+    // Map: Standby → idle template; Buffering → idle non-template (so it
+    // shows the ring shape but in its native colour, distinguishing from
+    // standby); Recording → filled red dot. A future refinement could ship
+    // a third PNG for buffering specifically.
+    let (bytes, is_template) = match state {
+        TrayState::Standby => (IDLE_PNG, true),
+        TrayState::Buffering => (IDLE_PNG, false),
+        TrayState::Recording => (CAPTURING_PNG, false),
+    };
     match Image::from_bytes(bytes) {
         Ok(img) => {
             if let Err(e) = tray.set_icon(Some(img)) {
                 log::warn!("tray.set_icon failed: {e}");
             }
-            // Capturing icon is solid red — never template. Idle is template
-            // so it adapts to dark/light menu bars.
-            if let Err(e) = tray.set_icon_as_template(!capturing) {
+            if let Err(e) = tray.set_icon_as_template(is_template) {
                 log::warn!("tray.set_icon_as_template failed: {e}");
             }
         }
         Err(e) => log::warn!("tray icon decode failed: {e}"),
     }
+}
+
+// Backwards-compat shim — kept while events.rs still calls set_capturing.
+pub fn set_capturing(app: &AppHandle, capturing: bool) {
+    set_state(app, if capturing { TrayState::Recording } else { TrayState::Standby });
 }

@@ -325,7 +325,7 @@ export function SettingsPane({ onClose }: Props) {
 ├── settings.json               your prefs
 └── logs/sidecar-*.log          post-mortem logs
 
-macOS Keychain — com.aryaa.replay
+macOS Keychain — service: app.replay
 ├── anthropic-api-key           BYOK (only if anthropic provider)
 └── openai-api-key              BYOK (only if openai provider)`}
           </pre>
@@ -351,6 +351,34 @@ macOS Keychain — com.aryaa.replay
               sub="sidecar post-mortems"
               onClick={() => void ipc.openAppFolder("logs")}
             />
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-rule space-y-2">
+            <div className="text-2xs uppercase tracking-widest text-dust">
+              danger zone
+            </div>
+            <button
+              onClick={async () => {
+                if (!confirm("delete all replay bundles? individual reports + frames go away. screenpipe data + settings stay.")) return;
+                const n = await ipc.deleteAllReplays();
+                setKeyMessage(`deleted ${n} replay${n === 1 ? "" : "s"}`);
+                setTimeout(() => setKeyMessage(""), 2500);
+              }}
+              className="btn-danger w-full justify-start"
+            >
+              ▲ delete all replays
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm("wipe ALL replay state? deletes replays + screenpipe captures + sidecar logs + claude session transcripts. settings + api keys stay. cannot undo.")) return;
+                await ipc.wipeAllState();
+                setKeyMessage("wiped: fresh state");
+                setTimeout(() => setKeyMessage(""), 2500);
+              }}
+              className="btn-danger w-full justify-start"
+            >
+              ▲▲ wipe everything (nuclear)
+            </button>
           </div>
         </Section>
       </div>
