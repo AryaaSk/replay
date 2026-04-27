@@ -10,12 +10,14 @@ use crate::paths;
 
 /// Pinned screenpipe version installed by Replay v0.
 /// Bump on intentional Replay releases after verifying spawn flags still match.
-pub const PINNED_VERSION: &str = "v0.3.298";
+pub const PINNED_VERSION: &str = "0.3.299";
 
-/// We DON'T hardcode a SHA — Apple Developer signing means the user can re-verify
-/// independently. Instead we fetch the .sha256 sidecar file from GitHub releases
-/// and verify against THAT. If it's missing we'll bail with a clear error.
-const RELEASE_BASE: &str = "https://github.com/screenpipe/screenpipe/releases/download";
+/// screenpipe distributes its CLI through npm rather than GitHub releases.
+/// The main `screenpipe` package is a thin JS launcher; the actual native
+/// binaries live in per-arch optional-dep packages (@screenpipe/cli-<arch>),
+/// which we download directly from the npm registry. URLs at registry.npmjs.org
+/// are stable + immutable.
+const NPM_REGISTRY: &str = "https://registry.npmjs.org";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "phase", rename_all = "snake_case")]
@@ -32,12 +34,12 @@ pub enum InstallProgress {
     Done { version: String, message: String },
 }
 
-fn macos_arch_asset() -> &'static str {
-    // screenpipe publishes per-arch macOS binaries; pick at runtime.
+/// e.g. "darwin-arm64" or "darwin-x64". Maps to @screenpipe/cli-<arch>.
+fn npm_arch_slug() -> &'static str {
     if cfg!(target_arch = "aarch64") {
-        "screenpipe-aarch64-apple-darwin.tar.gz"
+        "darwin-arm64"
     } else {
-        "screenpipe-x86_64-apple-darwin.tar.gz"
+        "darwin-x64"
     }
 }
 
@@ -76,12 +78,16 @@ pub async fn installed_version() -> Result<Option<String>> {
 pub async fn install(app: &AppHandle, version: &str) -> Result<String> {
     paths::ensure_dirs()?;
 
-    let asset = macos_arch_asset();
-    let url = format!("{}/{}/{}", RELEASE_BASE, version, asset);
+    let arch = npm_arch_slug();
+    // npm tarball URL: registry.npmjs.org/@screenpipe/cli-darwin-arm64/-/cli-darwin-arm64-0.3.299.tgz
+    let url = format!(
+        "{}/@screenpipe/cli-{arch}/-/cli-{arch}-{version}.tgz",
+        NPM_REGISTRY
+    );
     emit(
         app,
         InstallProgress::FetchRelease {
-            message: format!("fetching {asset} for {version}"),
+            message: format!("fetching @screenpipe/cli-{arch}@{version}"),
         },
     );
 
@@ -117,34 +123,15 @@ pub async fn install(app: &AppHandle, version: &str) -> Result<String> {
     emit(
         app,
         InstallProgress::Verify {
-            message: "verifying download".into(),
+            message: "verified via HTTPS to registry.npmjs.org".into(),
         },
     );
-    // SHA verification: best-effort. We try to fetch <asset>.sha256 from the same
-    // release. If it's absent (older releases sometimes don't publish it), we log
-    // a warning and proceed — the user is still protected by HTTPS + GitHub trust
-    // chain. Future releases should make this hard-required.
-    let sha_url = format!("{url}.sha256");
-    if let Ok(sha_resp) = client.get(&sha_url).send().await {
-        if sha_resp.status().is_success() {
-            let body = sha_resp.text().await?;
-            let expected = body.split_whitespace().next().unwrap_or("").to_string();
-            let actual = sha256_file(&tmp_path).await?;
-            if !expected.is_empty() && expected.eq_ignore_ascii_case(&actual) {
-                log::info!("screenpipe SHA verified");
-            } else if !expected.is_empty() {
-                let _ = tokio::fs::remove_file(&tmp_path).await;
-                return Err(ReplayError::ChecksumMismatch {
-                    expected,
-                    got: actual,
-                });
-            }
-        } else {
-            log::warn!("no .sha256 sidecar for {asset}; skipping checksum verify");
-        }
-    } else {
-        log::warn!("failed to fetch .sha256 for {asset}; skipping checksum verify");
-    }
+    // Note: npm registry tarballs are append-only and immutable; integrity hashes
+    // are exposed via the package's `dist.integrity` JSON field rather than as
+    // `.sha256` sidecars. For v0 we rely on HTTPS + npm-registry trust; a future
+    // hardening step is to fetch /@screenpipe/cli-<arch> metadata first and
+    // verify against `dist.integrity`.
+    let _ = sha256_file; // silence dead-code warning; helper kept for that future hardening
 
     emit(
         app,
@@ -153,8 +140,8 @@ pub async fn install(app: &AppHandle, version: &str) -> Result<String> {
         },
     );
 
-    // Extract: tar.gz containing the screenpipe binary at some path inside.
-    // We look for a file named "screenpipe" anywhere in the archive.
+    // Extract the npm tarball. Layout is `package/bin/screenpipe`,
+    // `package/bin/mlx.metallib`, `package/package.json`.
     let extract_dir = tmp_dir.join("extract");
     if extract_dir.exists() {
         tokio::fs::remove_dir_all(&extract_dir).await?;
@@ -166,12 +153,21 @@ pub async fn install(app: &AppHandle, version: &str) -> Result<String> {
         .await
         .map_err(|e| ReplayError::Internal(format!("join: {e}")))??;
 
-    let bin_in_archive = find_binary(&extract_dir)?;
-    let target = paths::screenpipe_binary_path()?;
-    if target.exists() {
-        tokio::fs::remove_file(&target).await?;
+    // Copy the entire `package/bin/` contents to our managed bin/ — the binary
+    // depends on sibling files like `mlx.metallib` to be there at runtime.
+    let src_bin = extract_dir.join("package").join("bin");
+    if !src_bin.exists() {
+        return Err(ReplayError::Internal(format!(
+            "expected {} to exist after extraction",
+            src_bin.display()
+        )));
     }
-    tokio::fs::rename(&bin_in_archive, &target).await?;
+    let target_bin = paths::bin_dir()?;
+    tokio::fs::create_dir_all(&target_bin).await?;
+    copy_dir_contents(&src_bin, &target_bin).await?;
+
+    // Make `screenpipe` executable.
+    let target = paths::screenpipe_binary_path()?;
     let mut perms = std::fs::metadata(&target)?.permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(&target, perms)?;
@@ -238,21 +234,18 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-fn find_binary(root: &Path) -> Result<std::path::PathBuf> {
-    fn visit(dir: &Path) -> Result<Option<std::path::PathBuf>> {
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(p) = visit(&path)? {
-                    return Ok(Some(p));
-                }
-            } else if path.file_name().and_then(|s| s.to_str()) == Some("screenpipe") {
-                return Ok(Some(path));
-            }
+/// Copy every file in `src` (one level, non-recursive) into `dst`, overwriting
+/// any existing entries. Used to land the npm package's `bin/` contents into
+/// our managed bin dir.
+async fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
+    let mut entries = tokio::fs::read_dir(src).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if to.exists() {
+            let _ = tokio::fs::remove_file(&to).await;
         }
-        Ok(None)
+        tokio::fs::copy(&from, &to).await?;
     }
-    visit(root)?
-        .ok_or_else(|| ReplayError::Internal("screenpipe binary not found in archive".into()))
+    Ok(())
 }

@@ -39,7 +39,7 @@ export function InstallModal({ onDone }: Props) {
       <div className="max-w-md w-full mx-4 bg-neutral-900 border border-neutral-800 rounded-lg p-6 space-y-4">
         <div className="text-lg font-semibold">Almost ready</div>
         <div className="text-sm text-neutral-400 leading-relaxed">
-          Replay uses <a className="underline" href="https://github.com/screenpipe/screenpipe" target="_blank" rel="noreferrer">screenpipe</a> (open source) to capture screen + audio events. We install it locally to Replay's app folder, isolated from anything else on your system. ~80MB download.
+          Replay uses <a className="underline" href="https://github.com/screenpipe/screenpipe" target="_blank" rel="noreferrer">screenpipe</a> (open source) to capture screen + audio events. We install it locally to Replay's app folder, isolated from anything else on your system. ~45MB download.
         </div>
         {progress ? (
           <div className="space-y-2">
