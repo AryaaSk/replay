@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use serde::Serialize;
+use tauri::Emitter;
 
 mod agent;
 mod errors;
