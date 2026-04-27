@@ -3,6 +3,11 @@ use crate::errors::{ReplayError, Result};
 const SERVICE: &str = "com.aryaa.replay";
 const ACCOUNT: &str = "anthropic-api-key";
 
+/// macOS OSStatus for "specified item could not be found in the keychain".
+/// We treat this as "key absent" rather than an error.
+#[cfg(target_os = "macos")]
+const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
+
 #[cfg(target_os = "macos")]
 pub fn set_anthropic_key(key: &str) -> Result<()> {
     use security_framework::passwords::set_generic_password;
@@ -19,15 +24,8 @@ pub fn get_anthropic_key() -> Result<Option<String>> {
                 .map_err(|e| ReplayError::Keychain(format!("utf8: {e}")))?;
             Ok(Some(s))
         }
-        Err(e) => {
-            // -25300 == errSecItemNotFound
-            let msg = e.to_string();
-            if msg.contains("-25300") || msg.contains("not found") || msg.contains("Item Not") {
-                Ok(None)
-            } else {
-                Err(ReplayError::Keychain(msg))
-            }
-        }
+        Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(None),
+        Err(e) => Err(ReplayError::Keychain(e.to_string())),
     }
 }
 
@@ -36,14 +34,8 @@ pub fn delete_anthropic_key() -> Result<()> {
     use security_framework::passwords::delete_generic_password;
     match delete_generic_password(SERVICE, ACCOUNT) {
         Ok(_) => Ok(()),
-        Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("-25300") || msg.contains("not found") {
-                Ok(())
-            } else {
-                Err(ReplayError::Keychain(msg))
-            }
-        }
+        Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(()),
+        Err(e) => Err(ReplayError::Keychain(e.to_string())),
     }
 }
 
