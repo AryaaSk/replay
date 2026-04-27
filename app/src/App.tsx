@@ -10,6 +10,8 @@ import {
   onCaptureStateChanged,
   onCaptureStoppedFromTray,
   onSidecarStatus,
+  onTrayReplayRendered,
+  onTrayStopError,
 } from "./lib/events";
 import type { CaptureState, ReplaySummary, SidecarEvent } from "@shared/types";
 
@@ -36,6 +38,8 @@ export default function App() {
     let unsubCapture: (() => void) | undefined;
     let unsubSidecar: (() => void) | undefined;
     let unsubTray: (() => void) | undefined;
+    let unsubTrayRendered: (() => void) | undefined;
+    let unsubTrayError: (() => void) | undefined;
 
     (async () => {
       try {
@@ -90,11 +94,19 @@ export default function App() {
       unsubTray = await onCaptureStoppedFromTray(() => {
         void ipc.getCaptureState().then(setCaptureState);
       });
+      unsubTrayRendered = await onTrayReplayRendered(async (id) => {
+        await refreshReplays();
+        setPreviewId(id);
+        setView("preview");
+      });
+      unsubTrayError = await onTrayStopError((msg) => setError(msg));
     })();
     return () => {
       unsubCapture?.();
       unsubSidecar?.();
       unsubTray?.();
+      unsubTrayRendered?.();
+      unsubTrayError?.();
     };
   }, [refreshReplays]);
 

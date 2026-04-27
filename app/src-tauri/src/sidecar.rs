@@ -74,11 +74,26 @@ pub async fn run_render(
         .spawn()
         .map_err(|e| ReplayError::Sidecar(format!("spawn: {e}")))?;
 
+    // Accumulate stderr (tail-bounded) so we can include it in the error
+    // message if the sidecar exits non-zero. Without this, all the user sees
+    // is "exit code Some(1)" — useless for debugging.
+    let mut stderr_buf = String::new();
+    let mut last_error_event: Option<String> = None;
+
     while let Some(event) = rx.recv().await {
         match event {
             CommandEvent::Stdout(bytes) => {
                 let line = String::from_utf8_lossy(&bytes).to_string();
                 for one in line.split('\n').filter(|s| !s.trim().is_empty()) {
+                    // Sidecar emits {event: "error", message: "..."} on its
+                    // own controlled failure path — capture for surfacing.
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(one) {
+                        if parsed.get("event").and_then(|v| v.as_str()) == Some("error") {
+                            if let Some(m) = parsed.get("message").and_then(|v| v.as_str()) {
+                                last_error_event = Some(m.to_string());
+                            }
+                        }
+                    }
                     if let Err(e) = app.emit("sidecar-status", SidecarLine { line: one.into() }) {
                         log::warn!("emit sidecar-status: {e}");
                     }
@@ -87,13 +102,22 @@ pub async fn run_render(
             CommandEvent::Stderr(bytes) => {
                 let line = String::from_utf8_lossy(&bytes).to_string();
                 log::warn!("sidecar stderr: {}", line.trim());
+                stderr_buf.push_str(&line);
+                if stderr_buf.len() > 4000 {
+                    stderr_buf.drain(..stderr_buf.len() - 4000);
+                }
             }
             CommandEvent::Terminated(payload) => {
                 if payload.code != Some(0) {
-                    return Err(ReplayError::Sidecar(format!(
-                        "exit code {:?}",
-                        payload.code
-                    )));
+                    let detail = if let Some(m) = last_error_event {
+                        m
+                    } else if !stderr_buf.trim().is_empty() {
+                        stderr_buf.trim().lines().rev().take(3).collect::<Vec<_>>()
+                            .into_iter().rev().collect::<Vec<_>>().join(" | ")
+                    } else {
+                        format!("exit code {:?}, no output", payload.code)
+                    };
+                    return Err(ReplayError::Sidecar(detail));
                 }
                 break;
             }

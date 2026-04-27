@@ -20,7 +20,16 @@ globalThis.__filename = __filename;
 globalThis.__dirname = __dirname;
 `;
 
-const body = await fs.readFile(inputFile, "utf8");
+let body = await fs.readFile(inputFile, "utf8");
+// Strip a leading shebang (esbuild preserves the one from src/index.ts).
+// Once the shim is prepended the shebang lands mid-file and breaks ESM parsing
+// with "Invalid or unexpected token". Node ignores shebangs only on the very
+// first line of a file, and our wrapper bash script invokes node explicitly,
+// so we don't need it.
+if (body.startsWith("#!")) {
+  const nl = body.indexOf("\n");
+  body = nl === -1 ? "" : body.slice(nl + 1);
+}
 await fs.writeFile(outputFile, shim + body);
 await fs.chmod(outputFile, 0o755);
 await fs.unlink(inputFile);

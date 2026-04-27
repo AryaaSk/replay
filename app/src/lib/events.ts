@@ -54,3 +54,15 @@ export async function onCaptureStoppedFromTray(
 ): Promise<UnlistenFn> {
   return listen("capture-stopped-from-tray", () => cb());
 }
+
+export async function onTrayReplayRendered(
+  cb: (replayId: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("tray-replay-rendered", (e) => cb(e.payload));
+}
+
+export async function onTrayStopError(
+  cb: (msg: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("tray-stop-error", (e) => cb(e.payload));
+}

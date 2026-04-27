@@ -44,14 +44,37 @@ pub fn install(app: &AppHandle) -> Result<()> {
                 }
             }
             "stop-capture" => {
+                // If a recording is in progress, do the full Stop + Render flow
+                // (same as the in-app stop button) so the user gets their replay.
+                // Otherwise just kill any always-warm screenpipe child as an
+                // emergency capture-stop.
                 let app_clone = app.clone();
                 tauri::async_runtime::spawn(async move {
                     let state = app_clone.state::<crate::state::AppState>();
-                    if let Some(child) = state.screenpipe_child.lock().await.take() {
-                        let _ = crate::recording::kill_child(child).await;
+                    let recording_active = state.recording_start.lock().await.is_some();
+
+                    if recording_active {
+                        match crate::recording::stop_recording(app_clone.clone(), state.inner().clone()).await {
+                            Ok((start_ts, end_ts)) => {
+                                let id = crate::replays::new_id();
+                                match crate::sidecar::run_render(&app_clone, &start_ts, &end_ts, &id).await {
+                                    Ok(_) => {
+                                        let _ = app_clone.emit("tray-replay-rendered", &id);
+                                    }
+                                    Err(e) => {
+                                        log::error!("tray render failed: {e}");
+                                        let _ = app_clone.emit("tray-stop-error", &e.to_string());
+                                    }
+                                }
+                            }
+                            Err(e) => log::error!("tray stop_recording failed: {e}"),
+                        }
+                    } else {
+                        if let Some(child) = state.screenpipe_child.lock().await.take() {
+                            let _ = crate::recording::kill_child(child).await;
+                        }
                     }
                     *state.mode.lock().await = crate::state::CaptureMode::Fresh;
-                    *state.recording_start.lock().await = None;
                     crate::events::broadcast(&app_clone, &state).await;
                     let _ = app_clone.emit("capture-stopped-from-tray", ());
                 });
