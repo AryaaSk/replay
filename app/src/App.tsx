@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "./components/Header";
 import { RecordButton } from "./components/RecordButton";
 import { Sidebar } from "./components/Sidebar";
@@ -10,9 +10,7 @@ import {
   onCaptureStateChanged,
   onCaptureStoppedFromTray,
   onSidecarStatus,
-  onTrayReplayRendered,
-  onTrayStopError,
-  onTrayStopStarted,
+  onTrayRecordToggle,
 } from "./lib/events";
 import type { CaptureState, PermissionsReport, ReplaySummary, SidecarEvent } from "@shared/types";
 
@@ -52,6 +50,14 @@ export default function App() {
   const [permissionsChecking, setPermissionsChecking] = useState(false);
   const [, setSidecarTail] = useState<SidecarEvent | null>(null);
 
+  // Mutable ref holding the latest handlers — populated by an effect at the
+  // bottom of this component. Listeners registered once at mount can dispatch
+  // through this without going stale.
+  const handlersRef = useRef<{
+    start?: () => Promise<void>;
+    stop?: () => Promise<void>;
+  }>({});
+
   const refreshReplays = useCallback(async () => {
     const list = await ipc.listReplays();
     setReplays(list);
@@ -62,9 +68,7 @@ export default function App() {
     let unsubCapture: (() => void) | undefined;
     let unsubSidecar: (() => void) | undefined;
     let unsubTray: (() => void) | undefined;
-    let unsubTrayRendered: (() => void) | undefined;
-    let unsubTrayError: (() => void) | undefined;
-    let unsubTrayStarted: (() => void) | undefined;
+    let unsubTrayToggle: (() => void) | undefined;
 
     (async () => {
       try {
@@ -132,27 +136,25 @@ export default function App() {
       unsubTray = await onCaptureStoppedFromTray(() => {
         void ipc.getCaptureState().then(setCaptureState);
       });
-      unsubTrayRendered = await onTrayReplayRendered(async (id) => {
-        setBusy(null);
-        await refreshReplays();
-        setPreviewId(id);
-        setView("preview");
-      });
-      unsubTrayError = await onTrayStopError((msg) => {
-        setBusy(null);
-        setError(msg);
-      });
-      unsubTrayStarted = await onTrayStopStarted(() => {
-        setBusy("Processing recording…");
+      unsubTrayToggle = await onTrayRecordToggle(async () => {
+        // Use the same code paths as the in-app Record button so permission
+        // checks, key checks, busy state, and preview rendering all work.
+        // Dispatch through handlersRef so we always call the latest version
+        // — handleStart reads permissions from state which only populates
+        // after the boot probe finishes.
+        const live = await ipc.getCaptureState();
+        if (live.recordingStart != null) {
+          await handlersRef.current.stop?.();
+        } else {
+          await handlersRef.current.start?.();
+        }
       });
     })();
     return () => {
       unsubCapture?.();
       unsubSidecar?.();
       unsubTray?.();
-      unsubTrayRendered?.();
-      unsubTrayError?.();
-      unsubTrayStarted?.();
+      unsubTrayToggle?.();
     };
   }, [refreshReplays]);
 
@@ -204,6 +206,12 @@ export default function App() {
       // mic check happens in handleStart (depends on disable_audio setting)
     ) : false
   );
+
+  // Keep the latest handlers reachable from listeners that were registered
+  // once at mount. Updated every render via the effect below.
+  useEffect(() => {
+    handlersRef.current = { start: handleStart, stop: handleStop };
+  });
 
   const handleStop = async () => {
     setError(null);

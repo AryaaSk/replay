@@ -1,7 +1,9 @@
+use std::sync::OnceLock;
+
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, Wry};
 
 use crate::errors::Result;
 
@@ -12,21 +14,27 @@ const TRAY_ID: &str = "main";
 const IDLE_PNG: &[u8] = include_bytes!("../icons/tray-idle.png");
 const CAPTURING_PNG: &[u8] = include_bytes!("../icons/tray-capturing.png");
 
+// Dynamic menu item handles. Stored in OnceLocks so set_state can update their
+// labels based on capture state. MenuItem<Wry> is Clone (Arc-wrapped under the
+// hood) so storing a clone here is cheap.
+static RECORD_TOGGLE_ITEM: OnceLock<MenuItem<Wry>> = OnceLock::new();
+
 pub fn install(app: &AppHandle) -> Result<()> {
     let show_window = MenuItem::with_id(app, "show", "Open Replay", true, None::<&str>)
         .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
-    let stop_capture = MenuItem::with_id(
+    let record_toggle = MenuItem::with_id(
         app,
-        "stop-capture",
-        "Stop capturing now",
+        "record-toggle",
+        "Start recording",
         true,
         None::<&str>,
     )
     .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
+    let _ = RECORD_TOGGLE_ITEM.set(record_toggle.clone());
     let quit = PredefinedMenuItem::quit(app, Some("Quit Replay"))
         .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
 
-    let menu = Menu::with_items(app, &[&show_window, &stop_capture, &quit])
+    let menu = Menu::with_items(app, &[&show_window, &record_toggle, &quit])
         .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
 
     let idle_image = Image::from_bytes(IDLE_PNG)
@@ -43,44 +51,17 @@ pub fn install(app: &AppHandle) -> Result<()> {
                     let _ = window.set_focus();
                 }
             }
-            "stop-capture" => {
-                // If a recording is in progress, do the full Stop + Render flow
-                // (same as the in-app stop button) so the user gets their replay.
-                // Otherwise just kill any always-warm screenpipe child as an
-                // emergency capture-stop.
-                let app_clone = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let state = app_clone.state::<crate::state::AppState>();
-                    let recording_active = state.recording_start.lock().await.is_some();
-
-                    if recording_active {
-                        // Tell the frontend processing is starting so it can
-                        // show the busy spinner, exactly like the in-app stop.
-                        let _ = app_clone.emit("tray-stop-started", ());
-                        match crate::recording::stop_recording(app_clone.clone(), state.inner().clone()).await {
-                            Ok((start_ts, end_ts)) => {
-                                let initial_id = crate::replays::new_id();
-                                match crate::sidecar::run_render(&app_clone, &start_ts, &end_ts, &initial_id).await {
-                                    Ok(render) => {
-                                        let _ = app_clone.emit("tray-replay-rendered", &render.replay_id);
-                                    }
-                                    Err(e) => {
-                                        log::error!("tray render failed: {e}");
-                                        let _ = app_clone.emit("tray-stop-error", &e.to_string());
-                                    }
-                                }
-                            }
-                            Err(e) => log::error!("tray stop_recording failed: {e}"),
-                        }
-                    } else {
-                        if let Some(child) = state.screenpipe_child.lock().await.take() {
-                            let _ = crate::recording::kill_child(child).await;
-                        }
-                    }
-                    *state.mode.lock().await = crate::state::CaptureMode::Fresh;
-                    crate::events::broadcast(&app_clone, &state).await;
-                    let _ = app_clone.emit("capture-stopped-from-tray", ());
-                });
+            "record-toggle" => {
+                // Mirror the in-app Record button: emit an event the frontend
+                // listens for, and let App.tsx call its own handleStart /
+                // handleStop. That keeps permission checks, key checks, busy
+                // state, and preview rendering in one place — the tray is
+                // just a thin proxy.
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                let _ = app.emit("tray-record-toggle", ());
             }
             _ => {}
         })
@@ -97,17 +78,28 @@ pub enum TrayState {
     Recording,  // user is bracketing a window
 }
 
-/// Swap the tray icon based on the three-state ladder.
-/// Called from `events::broadcast` so it stays in lockstep with the frontend.
+/// Swap the tray icon AND the record-toggle menu item label based on the
+/// three-state ladder. Called from `events::broadcast` so the tray stays in
+/// lockstep with the frontend.
 pub fn set_state(app: &AppHandle, state: TrayState) {
+    // Update menu label: "Start recording" when nothing is being captured for
+    // a replay, "Stop recording" when one is in progress.
+    if let Some(item) = RECORD_TOGGLE_ITEM.get() {
+        let label = match state {
+            TrayState::Recording => "Stop recording",
+            // Buffering and Standby both look the same from the user's
+            // perspective: there's no active replay being recorded yet.
+            _ => "Start recording",
+        };
+        if let Err(e) = item.set_text(label) {
+            log::warn!("tray.set_text failed: {e}");
+        }
+    }
+
+    // Update icon.
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return;
     };
-    // For now we only have two PNG assets (idle ring + filled red dot).
-    // Map: Standby → idle template; Buffering → idle non-template (so it
-    // shows the ring shape but in its native colour, distinguishing from
-    // standby); Recording → filled red dot. A future refinement could ship
-    // a third PNG for buffering specifically.
     let (bytes, is_template) = match state {
         TrayState::Standby => (IDLE_PNG, true),
         TrayState::Buffering => (IDLE_PNG, false),
