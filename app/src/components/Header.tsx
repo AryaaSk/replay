@@ -8,30 +8,58 @@ interface Props {
 export function Header({ captureState, onOpenSettings }: Props) {
   const mode = captureState?.mode ?? "fresh";
   const capturing = captureState?.capturing ?? false;
+
   return (
-    <div className="titlebar h-12 flex items-center justify-between px-4 border-b border-neutral-800 bg-neutral-900/60">
-      <div className="flex items-center gap-3">
-        <div className="font-semibold tracking-tight">Replay</div>
-        <button
-          onClick={onOpenSettings}
-          className="text-xs text-neutral-400 hover:text-neutral-100 transition-colors"
-        >
-          Mode: {mode === "always-warm" ? "Always warm" : "Fresh each recording"}
-        </button>
+    <div className="titlebar h-12 flex items-stretch justify-between border-b border-rule bg-carbon/40 select-none">
+      {/* Left: brand mark + REC indicator */}
+      <div className="flex items-center gap-3 pl-4 pr-3">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-sm font-semibold tracking-tight text-bone">
+            replay
+          </span>
+          <span className="font-mono text-2xs text-dust">v0.1</span>
+        </div>
         {capturing ? (
-          <div className="flex items-center gap-1.5 text-xs text-red-400">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse-slow" />
-            capturing
+          <div className="chip chip-live animate-pulse-rec">
+            <span className="w-1.5 h-1.5 rounded-full bg-ember" />
+            REC
           </div>
         ) : null}
       </div>
-      <button
-        onClick={onOpenSettings}
-        aria-label="Open settings"
-        className="text-neutral-300 hover:text-neutral-100 transition-colors text-2xl leading-none px-2 py-1"
-      >
-        ⚙
-      </button>
+
+      {/* Right: mode chip + settings */}
+      <div className="flex items-stretch">
+        <button
+          onClick={onOpenSettings}
+          className="px-3 flex items-center group border-l border-rule"
+          title="Capture mode"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-2xs uppercase tracking-widest text-dust group-hover:text-ash">
+              mode
+            </span>
+            <span className="text-xs text-bone">
+              {mode === "always-warm" ? "warm" : "fresh"}
+            </span>
+          </div>
+        </button>
+        <button
+          onClick={onOpenSettings}
+          aria-label="Open settings"
+          className="px-4 flex items-center text-ash hover:text-bone hover:bg-char border-l border-rule transition-colors"
+        >
+          <SettingsIcon />
+        </button>
+      </div>
     </div>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" />
+    </svg>
   );
 }

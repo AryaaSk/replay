@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CaptureState,
   Provider,
+  ReplayDetail,
   ReplaySummary,
   Settings,
   SetupStatus,
@@ -52,6 +53,42 @@ export const ipc = {
     ),
 
   readReplay: (id: string) => invoke<string>("read_replay", { id }),
+
+  readReplayDetail: (id: string) =>
+    invoke<{
+      id: string;
+      title: string;
+      start_ts: string;
+      end_ts: string;
+      duration_ms: number;
+      created_at: string;
+      model: string;
+      provider: string;
+      estimated_cost_usd: number;
+      frame_files: string[];
+      bundle_path: string;
+      report_present: boolean;
+    }>("read_replay_detail", { id }).then((r): ReplayDetail => ({
+      id: r.id,
+      title: r.title,
+      startTs: r.start_ts,
+      endTs: r.end_ts,
+      durationMs: r.duration_ms,
+      createdAt: r.created_at,
+      model: r.model,
+      provider: r.provider,
+      estimatedCostUSD: r.estimated_cost_usd,
+      frameFiles: r.frame_files,
+      bundlePath: r.bundle_path,
+      reportPresent: r.report_present,
+    })),
+
+  readReplayFrame: (id: string, filename: string) =>
+    invoke<number[]>("read_replay_frame", { id, filename }).then((bytes) => {
+      const u8 = new Uint8Array(bytes);
+      const blob = new Blob([u8], { type: "image/png" });
+      return URL.createObjectURL(blob);
+    }),
 
   deleteReplay: (id: string) => invoke<void>("delete_replay", { id }),
 

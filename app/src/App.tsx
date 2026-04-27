@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { RecordButton } from "./components/RecordButton";
-import { ReplayList } from "./components/ReplayList";
+import { Sidebar } from "./components/Sidebar";
 import { PreviewPane } from "./components/PreviewPane";
 import { SettingsPane } from "./components/Settings";
 import { InstallModal } from "./components/InstallModal";
@@ -23,6 +23,7 @@ export default function App() {
   const [needsInstall, setNeedsInstall] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, setSidecarTail] = useState<SidecarEvent | null>(null);
 
   const refreshReplays = useCallback(async () => {
@@ -105,12 +106,14 @@ export default function App() {
   };
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="h-full flex flex-col relative bg-ink overflow-hidden">
       <Header
         captureState={captureState}
         onOpenSettings={() => setView("settings")}
       />
-      <div className="flex-1 flex flex-col items-center justify-start p-6 gap-6 overflow-auto">
+
+      {/* Main canvas — record button dominates */}
+      <div className="flex-1 relative flex flex-col items-center justify-center gap-6">
         <RecordButton
           captureState={captureState}
           onStart={() => void handleStart()}
@@ -119,24 +122,45 @@ export default function App() {
           busy={!!busy}
         />
         {captureState?.mode === "always-warm" && !captureState.recordingStart ? (
-          <div className="text-xs text-neutral-500">
-            Buffers last 60s — clip after the fact.
+          <div className="text-2xs uppercase tracking-[0.3em] text-dust">
+            ◐ buffers last 60s · clip after the fact
           </div>
         ) : null}
         {error ? (
-          <div className="text-sm text-red-400 max-w-md text-center">{error}</div>
+          <div className="px-3 py-1.5 border border-emberlow/40 bg-ember/5 text-2xs uppercase tracking-widest text-ember max-w-md text-center">
+            ▲ {error}
+          </div>
         ) : null}
-        {busy ? (
-          <div className="text-sm text-neutral-500">{busy}</div>
-        ) : null}
-        <div className="w-full max-w-md">
-          <ReplayList
-            replays={replays}
-            onOpen={handleOpenPreview}
-            onDelete={(id) => void handleDelete(id)}
-          />
-        </div>
+
+        {/* Vertical "ledger" tab on the right edge — opens the sidebar drawer */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="absolute top-1/2 right-0 -translate-y-1/2 z-10 group"
+          title="Open ledger"
+          aria-label="Open replay ledger"
+        >
+          <div className="flex flex-col items-center gap-2 px-2.5 py-4 border-y border-l border-rule bg-carbon/40 hover:bg-carbon transition-colors">
+            <span className="text-2xs uppercase tracking-[0.3em] text-dust group-hover:text-bone [writing-mode:vertical-rl] rotate-180">
+              ledger
+            </span>
+            <span className="font-mono text-2xs text-ash tabular-nums">
+              {String(replays.length).padStart(3, "0")}
+            </span>
+          </div>
+        </button>
       </div>
+
+      <Sidebar
+        open={sidebarOpen}
+        replays={replays}
+        onClose={() => setSidebarOpen(false)}
+        onOpen={(id) => {
+          setSidebarOpen(false);
+          handleOpenPreview(id);
+        }}
+        onDelete={(id) => void handleDelete(id)}
+      />
+
       {needsInstall ? (
         <InstallModal onDone={() => setNeedsInstall(false)} />
       ) : null}

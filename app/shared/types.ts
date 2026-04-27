@@ -126,6 +126,21 @@ export interface ReplaySummary {
   createdAt: string;
 }
 
+export interface ReplayDetail {
+  id: string;
+  title: string;
+  startTs: string;
+  endTs: string;
+  durationMs: number;
+  createdAt: string;
+  model: string;
+  provider: string;
+  estimatedCostUSD: number;
+  frameFiles: string[];
+  bundlePath: string;
+  reportPresent: boolean;
+}
+
 // Sidecar status events streamed over stdout, one JSON object per line.
 export type SidecarEvent =
   | { event: "reading_db"; rows: number }

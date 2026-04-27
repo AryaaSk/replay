@@ -2,8 +2,199 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Field Log base ---------- */
 html, body, #root { height: 100%; }
-body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Inter, sans-serif; }
+body {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  background-color: #16140F;
+  color: #F0EAD9;
+  /* subtle film grain — lifts the warm charcoal off "just dark mode" */
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-attachment: fixed;
+  background-size: 160px 160px;
+}
 
-button { -webkit-app-region: no-drag; }
+/* tab-numerals everywhere by default — instruments don't dance */
+* { font-variant-numeric: tabular-nums; }
+
+button { -webkit-app-region: no-drag; cursor: pointer; }
 .titlebar { -webkit-app-region: drag; }
+input, textarea, select { -webkit-app-region: no-drag; }
+
+/* ---------- Components ---------- */
+
+@layer components {
+  /* Hairline horizontal rule — used as a ledger divider */
+  .rule {
+    @apply border-t border-rule;
+  }
+
+  /* Corner brackets — viewfinder motif. Wrap any element. */
+  .brackets {
+    position: relative;
+  }
+  .brackets::before,
+  .brackets::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1px solid theme('colors.grit');
+    pointer-events: none;
+  }
+  .brackets::before {
+    top: -1px; left: -1px;
+    border-right: 0; border-bottom: 0;
+  }
+  .brackets::after {
+    bottom: -1px; right: -1px;
+    border-left: 0; border-top: 0;
+  }
+  .brackets-active::before,
+  .brackets-active::after {
+    border-color: theme('colors.ember');
+  }
+
+  /* Pill chip — used for status / mode labels */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs uppercase tracking-widest border border-rule text-ash;
+  }
+  .chip-live {
+    @apply text-ember border-ember;
+  }
+
+  /* Section header in Settings — index numeral + label */
+  .section-label {
+    @apply flex items-baseline gap-3 text-2xs uppercase tracking-[0.2em] text-ash mb-3;
+  }
+  .section-label .num {
+    @apply font-mono text-dust text-2xs;
+  }
+
+  /* Ledger row — used in the replay list */
+  .ledger-row {
+    @apply relative flex items-baseline gap-4 py-3 border-b border-rule transition-colors;
+  }
+  .ledger-row:hover {
+    @apply bg-carbon;
+  }
+  .ledger-row::before {
+    content: "";
+    position: absolute;
+    left: -1px; top: 50%;
+    width: 4px; height: 1px;
+    background: theme('colors.grit');
+    transition: background 200ms, width 200ms;
+  }
+  .ledger-row:hover::before {
+    background: theme('colors.ember');
+    width: 12px;
+  }
+
+  /* Instrument-panel button — used for primary actions */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium uppercase tracking-widest
+           border border-bone bg-bone text-ink hover:bg-bone/90 transition-colors;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest
+           border border-rule text-bone hover:border-bone hover:bg-carbon transition-colors;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-2 py-1 text-xs uppercase tracking-widest
+           text-ash hover:text-bone transition-colors;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest
+           border border-emberlow/40 text-ember hover:border-ember hover:bg-ember/10 transition-colors;
+  }
+
+  /* Field — labelled text input row */
+  .field {
+    @apply flex flex-col gap-1;
+  }
+  .field-label {
+    @apply text-2xs uppercase tracking-widest text-ash;
+  }
+  .field-input {
+    @apply px-2.5 py-1.5 bg-ink border border-rule text-bone text-xs
+           focus:outline-none focus:border-bone transition-colors;
+  }
+}
+
+/* Custom scrollbar — matches palette */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #16140F; }
+::-webkit-scrollbar-thumb { background: #34302B; border: 2px solid #16140F; }
+::-webkit-scrollbar-thumb:hover { background: #4A453F; }
+
+/* Markdown preview prose — Inter for body, mono for code blocks */
+.prose-fieldlog {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: #F0EAD9;
+}
+.prose-fieldlog h1 {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.prose-fieldlog h2 {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #9A938A;
+  margin-top: 22px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #34302B;
+}
+.prose-fieldlog ol {
+  list-style: none;
+  counter-reset: replay-step;
+  padding-left: 0;
+}
+.prose-fieldlog ol li {
+  counter-increment: replay-step;
+  padding-left: 32px;
+  position: relative;
+  margin-bottom: 6px;
+}
+.prose-fieldlog ol li::before {
+  content: counter(replay-step, decimal-leading-zero);
+  position: absolute; left: 0; top: 1px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: #6B655E;
+  font-weight: 500;
+}
+.prose-fieldlog code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.92em;
+  background: #1E1B17;
+  border: 1px solid #34302B;
+  padding: 1px 5px;
+}
+.prose-fieldlog strong {
+  color: #F0EAD9;
+  font-weight: 600;
+}
+.prose-fieldlog em {
+  color: #9A938A;
+  font-style: italic;
+}
+.prose-fieldlog p {
+  margin-bottom: 10px;
+}
+.prose-fieldlog img {
+  border: 1px solid #34302B;
+  margin: 12px 0;
+  max-width: 100%;
+}

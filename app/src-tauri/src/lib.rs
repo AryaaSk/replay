@@ -98,6 +98,16 @@ async fn read_replay(id: String) -> Result<String> {
 }
 
 #[tauri::command]
+async fn read_replay_detail(id: String) -> Result<replays::ReplayDetail> {
+    replays::read_detail(&id)
+}
+
+#[tauri::command]
+async fn read_replay_frame(id: String, filename: String) -> Result<Vec<u8>> {
+    replays::read_frame(&id, &filename)
+}
+
+#[tauri::command]
 async fn delete_replay(id: String) -> Result<()> {
     replays::delete(&id)
 }
@@ -215,6 +225,8 @@ pub fn run() {
             stop_recording,
             list_replays,
             read_replay,
+            read_replay_detail,
+            read_replay_frame,
             delete_replay,
             get_settings,
             set_settings,
