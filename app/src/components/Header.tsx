@@ -27,30 +27,22 @@ export function Header({ captureState, onOpenSettings }: Props) {
         ) : null}
       </div>
 
-      {/* Right: mode chip + settings */}
-      <div className="flex items-stretch">
-        <button
-          onClick={onOpenSettings}
-          className="px-3 flex items-center group border-l border-rule"
-          title="Capture mode"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-2xs uppercase tracking-widest text-dust group-hover:text-ash">
-              mode
-            </span>
-            <span className="text-xs text-bone">
-              {mode === "always-warm" ? "warm" : "fresh"}
-            </span>
-          </div>
-        </button>
-        <button
-          onClick={onOpenSettings}
-          aria-label="Open settings"
-          className="px-4 flex items-center text-ash hover:text-bone hover:bg-char border-l border-rule transition-colors"
-        >
-          <SettingsIcon />
-        </button>
-      </div>
+      {/* Right: single button — mode chip + settings icon merged */}
+      <button
+        onClick={onOpenSettings}
+        aria-label="Open settings"
+        title="Open settings"
+        className="flex items-center gap-3 px-4 border-l border-rule text-ash hover:text-bone hover:bg-char transition-colors group"
+      >
+        <span className="text-2xs uppercase tracking-widest text-dust group-hover:text-ash">
+          mode
+        </span>
+        <span className="text-xs text-bone">
+          {mode === "always-warm" ? "warm" : "fresh"}
+        </span>
+        <span className="text-grit group-hover:text-rule transition-colors">·</span>
+        <SettingsIcon />
+      </button>
     </div>
   );
 }

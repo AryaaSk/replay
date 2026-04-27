@@ -132,15 +132,15 @@ export default function App() {
           </div>
         ) : null}
 
-        {/* Vertical "ledger" tab on the right edge — opens the sidebar drawer */}
+        {/* Vertical "ledger" tab on the LEFT edge — opens the sidebar drawer */}
         <button
           onClick={() => setSidebarOpen(true)}
-          className="absolute top-1/2 right-0 -translate-y-1/2 z-10 group"
+          className="absolute top-1/2 left-0 -translate-y-1/2 z-10 group"
           title="Open ledger"
           aria-label="Open replay ledger"
         >
-          <div className="flex flex-col items-center gap-2 px-2.5 py-4 border-y border-l border-rule bg-carbon/40 hover:bg-carbon transition-colors">
-            <span className="text-2xs uppercase tracking-[0.3em] text-dust group-hover:text-bone [writing-mode:vertical-rl] rotate-180">
+          <div className="flex flex-col items-center gap-2 px-2.5 py-4 border-y border-r border-rule bg-carbon/40 hover:bg-carbon transition-colors">
+            <span className="text-2xs uppercase tracking-[0.3em] text-dust group-hover:text-bone [writing-mode:vertical-rl]">
               ledger
             </span>
             <span className="font-mono text-2xs text-ash tabular-nums">

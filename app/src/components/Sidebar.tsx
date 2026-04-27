@@ -43,21 +43,21 @@ export function Sidebar({ open, replays, onClose, onOpen, onDelete }: Props) {
       {/* Drawer */}
       <aside
         className={[
-          "absolute top-0 right-0 bottom-0 w-[360px] bg-carbon border-l border-rule z-30",
+          "absolute top-0 left-0 bottom-0 w-[360px] bg-carbon border-r border-rule z-30",
           "flex flex-col transition-transform duration-250 ease-out",
-          open ? "translate-x-0" : "translate-x-full",
+          open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
         <div className="h-12 flex items-center justify-between px-4 border-b border-rule shrink-0">
+          <button onClick={onClose} className="text-ash hover:text-bone text-xl leading-none">
+            ‹
+          </button>
           <div className="flex items-baseline gap-3">
             <span className="text-2xs uppercase tracking-[0.3em] text-dust">ledger</span>
             <span className="font-mono text-xs text-ash">
               {String(replays.length).padStart(3, "0")} entries
             </span>
           </div>
-          <button onClick={onClose} className="text-ash hover:text-bone text-xl leading-none">
-            ›
-          </button>
         </div>
 
         <div className="flex-1 overflow-auto">
