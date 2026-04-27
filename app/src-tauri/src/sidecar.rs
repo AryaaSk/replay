@@ -74,19 +74,44 @@ pub async fn run_render(
         .spawn()
         .map_err(|e| ReplayError::Sidecar(format!("spawn: {e}")))?;
 
-    // Accumulate stderr (tail-bounded) so we can include it in the error
-    // message if the sidecar exits non-zero. Without this, all the user sees
-    // is "exit code Some(1)" — useless for debugging.
+    // Tee everything (stdout + stderr) to a per-replay log file so post-mortems
+    // are possible when the user-facing error is necessarily truncated. The
+    // log file lives at <logs_dir>/sidecar-<replay_id>.log and is plain text.
+    let log_path = paths::logs_dir()?.join(format!("sidecar-{replay_id}.log"));
+    if let Some(parent) = log_path.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+    let mut log_file = match tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .await
+    {
+        Ok(f) => Some(f),
+        Err(e) => {
+            log::warn!("could not open sidecar log {}: {e}", log_path.display());
+            None
+        }
+    };
+    if let Some(ref mut f) = log_file {
+        let header = format!(
+            "=== sidecar run {replay_id} from={start_ts} to={end_ts} ===\n"
+        );
+        let _ = tokio::io::AsyncWriteExt::write_all(f, header.as_bytes()).await;
+    }
+
     let mut stderr_buf = String::new();
     let mut last_error_event: Option<String> = None;
 
     while let Some(event) = rx.recv().await {
         match event {
             CommandEvent::Stdout(bytes) => {
+                if let Some(ref mut f) = log_file {
+                    let _ = tokio::io::AsyncWriteExt::write_all(f, b"[stdout] ").await;
+                    let _ = tokio::io::AsyncWriteExt::write_all(f, &bytes).await;
+                }
                 let line = String::from_utf8_lossy(&bytes).to_string();
                 for one in line.split('\n').filter(|s| !s.trim().is_empty()) {
-                    // Sidecar emits {event: "error", message: "..."} on its
-                    // own controlled failure path — capture for surfacing.
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(one) {
                         if parsed.get("event").and_then(|v| v.as_str()) == Some("error") {
                             if let Some(m) = parsed.get("message").and_then(|v| v.as_str()) {
@@ -100,20 +125,40 @@ pub async fn run_render(
                 }
             }
             CommandEvent::Stderr(bytes) => {
+                if let Some(ref mut f) = log_file {
+                    let _ = tokio::io::AsyncWriteExt::write_all(f, b"[stderr] ").await;
+                    let _ = tokio::io::AsyncWriteExt::write_all(f, &bytes).await;
+                }
                 let line = String::from_utf8_lossy(&bytes).to_string();
                 log::warn!("sidecar stderr: {}", line.trim());
                 stderr_buf.push_str(&line);
-                if stderr_buf.len() > 4000 {
-                    stderr_buf.drain(..stderr_buf.len() - 4000);
+                if stderr_buf.len() > 16_000 {
+                    stderr_buf.drain(..stderr_buf.len() - 16_000);
                 }
             }
             CommandEvent::Terminated(payload) => {
+                if let Some(ref mut f) = log_file {
+                    let footer = format!("=== exit code {:?} ===\n", payload.code);
+                    let _ = tokio::io::AsyncWriteExt::write_all(f, footer.as_bytes()).await;
+                }
                 if payload.code != Some(0) {
                     let detail = if let Some(m) = last_error_event {
                         m
                     } else if !stderr_buf.trim().is_empty() {
-                        stderr_buf.trim().lines().rev().take(3).collect::<Vec<_>>()
-                            .into_iter().rev().collect::<Vec<_>>().join(" | ")
+                        // Take the FIRST useful lines (Node error class + message
+                        // live at the top of stderr, not the bottom) and append
+                        // a hint to the log file for the full stack.
+                        let first_lines: Vec<&str> = stderr_buf
+                            .trim()
+                            .lines()
+                            .filter(|l| !l.trim().is_empty())
+                            .take(3)
+                            .collect();
+                        format!(
+                            "{} (full log at {})",
+                            first_lines.join(" | "),
+                            log_path.display()
+                        )
                     } else {
                         format!("exit code {:?}, no output", payload.code)
                     };
