@@ -36,6 +36,17 @@ export interface AgentStatus {
   codex: AgentInfo;
 }
 
+export type PermissionStatus = "ok" | "denied" | "unknown";
+
+export interface PermissionsReport {
+  screenRecording: PermissionStatus;
+  microphone: PermissionStatus;
+  accessibility: PermissionStatus;
+  fresh: boolean;
+}
+
+export type PermissionKind = "screen-recording" | "microphone" | "accessibility";
+
 export const ANTHROPIC_MODELS: ReadonlyArray<{ id: AnthropicModel; label: string }> = [
   { id: "claude-sonnet-4-6", label: "claude-sonnet-4-6 (recommended)" },
   { id: "claude-haiku-4-5", label: "claude-haiku-4-5 (cheaper)" },

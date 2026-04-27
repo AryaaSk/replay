@@ -10,6 +10,7 @@ mod janitor;
 mod keychain;
 mod menubar;
 mod paths;
+mod permissions;
 mod recording;
 mod replays;
 mod settings_io;
@@ -229,6 +230,16 @@ async fn agent_status() -> Result<agent::AgentStatus> {
 }
 
 #[tauri::command]
+async fn check_permissions() -> Result<permissions::PermissionsReport> {
+    permissions::check_via_probe().await
+}
+
+#[tauri::command]
+async fn open_permission_settings(kind: String) -> Result<()> {
+    permissions::open_settings_pane(&kind)
+}
+
+#[tauri::command]
 async fn has_api_key(provider: String) -> Result<bool> {
     let p = Provider::from_str(&provider)
         .ok_or_else(|| ReplayError::Internal(format!("unknown provider: {provider}")))?;
@@ -340,6 +351,8 @@ pub fn run() {
             has_api_key,
             set_api_key,
             agent_status,
+            check_permissions,
+            open_permission_settings,
             quit_capturing,
             open_replay_dir,
             open_app_folder,

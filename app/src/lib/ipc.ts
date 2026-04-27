@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentStatus,
   CaptureState,
+  PermissionKind,
+  PermissionsReport,
+  PermissionStatus,
   Provider,
   ReplayDetail,
   ReplaySummary,
@@ -175,6 +178,22 @@ export const ipc = {
     invoke<void>("set_api_key", { provider, key }),
 
   agentStatus: () => invoke<AgentStatus>("agent_status"),
+
+  checkPermissions: () =>
+    invoke<{
+      screen_recording: PermissionStatus;
+      microphone: PermissionStatus;
+      accessibility: PermissionStatus;
+      fresh: boolean;
+    }>("check_permissions").then((r): PermissionsReport => ({
+      screenRecording: r.screen_recording,
+      microphone: r.microphone,
+      accessibility: r.accessibility,
+      fresh: r.fresh,
+    })),
+
+  openPermissionSettings: (kind: PermissionKind) =>
+    invoke<void>("open_permission_settings", { kind }),
 
   quitCapturing: () => invoke<void>("quit_capturing"),
 

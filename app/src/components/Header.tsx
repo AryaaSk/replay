@@ -64,10 +64,10 @@ function StateChip({ state }: { state: "recording" | "buffering" | "standby" }) 
   if (state === "buffering") {
     return (
       <div
-        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs uppercase tracking-widest border border-grit text-ash"
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs uppercase tracking-widest border border-moss/40 text-moss"
         title="screenpipe is capturing into the look-back buffer (always-warm)"
       >
-        <span className="w-1.5 h-1.5 rounded-full border border-ash" />
+        <span className="w-1.5 h-1.5 rounded-full bg-moss" />
         BUF
       </div>
     );

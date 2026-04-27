@@ -13,9 +13,30 @@ import {
   onTrayReplayRendered,
   onTrayStopError,
 } from "./lib/events";
-import type { CaptureState, ReplaySummary, SidecarEvent } from "@shared/types";
+import type { CaptureState, PermissionsReport, ReplaySummary, SidecarEvent } from "@shared/types";
 
 type View = "main" | "preview" | "settings";
+
+function PermissionsBanner({
+  report,
+  onOpenSettings,
+}: {
+  report: PermissionsReport;
+  onOpenSettings: () => void;
+}) {
+  const missing = [
+    report.screenRecording !== "ok" ? "screen recording" : null,
+    report.accessibility !== "ok" ? "accessibility" : null,
+  ].filter(Boolean) as string[];
+  return (
+    <button
+      onClick={onOpenSettings}
+      className="px-3 py-1.5 border border-emberlow/40 bg-ember/5 hover:border-ember hover:bg-ember/10 transition-colors text-2xs uppercase tracking-widest text-ember max-w-md text-center"
+    >
+      ▲ permissions needed: {missing.join(", ")} — open settings
+    </button>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState<View>("main");
@@ -26,6 +47,8 @@ export default function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionsReport | null>(null);
+  const [permissionsChecking, setPermissionsChecking] = useState(false);
   const [, setSidecarTail] = useState<SidecarEvent | null>(null);
 
   const refreshReplays = useCallback(async () => {
@@ -86,6 +109,19 @@ export default function App() {
         }
 
         await refreshReplays();
+
+        // Permissions probe: spawn screenpipe briefly to read its
+        // self-reported permission status. Only runs if the binary is
+        // installed (otherwise we don't know yet).
+        if (status.binaryInstalled) {
+          setPermissionsChecking(true);
+          try {
+            const report = await ipc.checkPermissions();
+            setPermissions(report);
+          } finally {
+            setPermissionsChecking(false);
+          }
+        }
       } catch (e) {
         setError(String(e));
       }
@@ -114,6 +150,21 @@ export default function App() {
     setError(null);
     try {
       const settings = await ipc.getSettings();
+
+      // Permissions check (most-likely failure first — they're scoped to
+      // the screenpipe binary, which won't capture anything until macOS
+      // grants Screen Recording / Mic / Accessibility).
+      if (permissions) {
+        const missing: string[] = [];
+        if (permissions.screenRecording !== "ok") missing.push("screen recording");
+        if (!settings.disableAudio && permissions.microphone !== "ok") missing.push("microphone");
+        if (permissions.accessibility !== "ok") missing.push("accessibility");
+        if (missing.length > 0) {
+          setError(`missing macos permissions: ${missing.join(", ")} — grant in settings → permissions`);
+          return;
+        }
+      }
+
       if (settings.provider === "local-claude" || settings.provider === "local-codex") {
         const agents = await ipc.agentStatus();
         const installed = settings.provider === "local-claude" ? agents.claude.installed : agents.codex.installed;
@@ -135,6 +186,14 @@ export default function App() {
       setError(String(e));
     }
   };
+
+  const recordDisabled = needsInstall || permissionsChecking || (
+    permissions ? (
+      permissions.screenRecording !== "ok" ||
+      permissions.accessibility !== "ok"
+      // mic check happens in handleStart (depends on disable_audio setting)
+    ) : false
+  );
 
   const handleStop = async () => {
     setError(null);
@@ -178,13 +237,23 @@ export default function App() {
           captureState={captureState}
           onStart={() => void handleStart()}
           onStop={() => void handleStop()}
-          disabled={needsInstall}
+          disabled={recordDisabled}
           busy={!!busy}
         />
         {captureState?.mode === "always-warm" && !captureState.recordingStart ? (
           <div className="text-2xs uppercase tracking-[0.3em] text-dust">
             ◐ buffers last 60s · clip after the fact
           </div>
+        ) : null}
+        {permissionsChecking ? (
+          <div className="text-2xs uppercase tracking-[0.3em] text-dust animate-tick">
+            ▮ checking macos permissions
+          </div>
+        ) : permissions && (permissions.screenRecording !== "ok" || permissions.accessibility !== "ok") ? (
+          <PermissionsBanner
+            report={permissions}
+            onOpenSettings={() => setView("settings")}
+          />
         ) : null}
         {error ? (
           <div className="px-3 py-1.5 border border-emberlow/40 bg-ember/5 text-2xs uppercase tracking-widest text-ember max-w-md text-center">

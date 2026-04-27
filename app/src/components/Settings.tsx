@@ -7,6 +7,8 @@ import {
   type AgentStatus,
   type AnthropicModel,
   type OpenAIModel,
+  type PermissionKind,
+  type PermissionsReport,
   type Provider,
   type Settings as S,
 } from "@shared/types";
@@ -20,6 +22,8 @@ export function SettingsPane({ onClose }: Props) {
   const [hasAnthropic, setHasAnthropic] = useState(false);
   const [hasOpenAI, setHasOpenAI] = useState(false);
   const [agents, setAgents] = useState<AgentStatus | null>(null);
+  const [permissions, setPermissions] = useState<PermissionsReport | null>(null);
+  const [permissionsRechecking, setPermissionsRechecking] = useState(false);
   const [anthropicInput, setAnthropicInput] = useState("");
   const [openaiInput, setOpenaiInput] = useState("");
   const [keyMessage, setKeyMessage] = useState<string>("");
@@ -29,7 +33,18 @@ export function SettingsPane({ onClose }: Props) {
     void ipc.hasApiKey("anthropic").then(setHasAnthropic);
     void ipc.hasApiKey("openai").then(setHasOpenAI);
     void ipc.agentStatus().then(setAgents);
+    void ipc.checkPermissions().then(setPermissions);
   }, []);
+
+  const recheckPermissions = async () => {
+    setPermissionsRechecking(true);
+    try {
+      const r = await ipc.checkPermissions();
+      setPermissions(r);
+    } finally {
+      setPermissionsRechecking(false);
+    }
+  };
 
   if (!settings) {
     return (
@@ -290,7 +305,39 @@ export function SettingsPane({ onClose }: Props) {
           />
         </Section>
 
-        <Section index="07" title="screenpipe">
+        <Section index="07" title="Permissions">
+          <div className="text-2xs uppercase tracking-widest text-dust mb-2">
+            macos grants these to the screenpipe binary, not to replay. open the relevant pane, toggle screenpipe on, then re-check.
+          </div>
+          <PermissionRow
+            label="screen recording"
+            kind="screen-recording"
+            status={permissions?.screenRecording}
+            required
+          />
+          <PermissionRow
+            label="microphone"
+            kind="microphone"
+            status={permissions?.microphone}
+            required={!settings.disableAudio}
+            note={settings.disableAudio ? "not required (audio capture disabled)" : undefined}
+          />
+          <PermissionRow
+            label="accessibility"
+            kind="accessibility"
+            status={permissions?.accessibility}
+            required
+          />
+          <button
+            onClick={() => void recheckPermissions()}
+            disabled={permissionsRechecking}
+            className="btn-secondary mt-2 w-full disabled:opacity-50"
+          >
+            {permissionsRechecking ? "▮ probing screenpipe…" : "↻ re-check permissions"}
+          </button>
+        </Section>
+
+        <Section index="07b" title="screenpipe">
           <div className="text-2xs uppercase tracking-widest text-dust">
             pinned · {settings.pinnedScreenpipeVersion ?? "latest known-good"}
           </div>
@@ -511,6 +558,59 @@ function Radio({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function PermissionRow({
+  label,
+  kind,
+  status,
+  required,
+  note,
+}: {
+  label: string;
+  kind: PermissionKind;
+  status: "ok" | "denied" | "unknown" | undefined;
+  required: boolean;
+  note?: string;
+}) {
+  const glyph =
+    status === "ok" ? "●" : status === "denied" ? "▲" : "○";
+  const color =
+    status === "ok"
+      ? "text-moss"
+      : status === "denied"
+      ? "text-ember"
+      : "text-dust";
+  const stateText =
+    status === "ok"
+      ? "granted"
+      : status === "denied"
+      ? "missing"
+      : "unknown";
+  return (
+    <div className="flex items-center gap-3 py-1.5 border-b border-rule/60 last:border-0">
+      <span className={`${color} text-xs leading-5 shrink-0 w-3`}>{glyph}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs text-bone">{label}</span>
+          {!required ? (
+            <span className="text-2xs uppercase tracking-widest text-dust">optional</span>
+          ) : null}
+        </div>
+        <div className="text-2xs uppercase tracking-widest text-dust">
+          {note ?? stateText}
+        </div>
+      </div>
+      {required ? (
+        <button
+          onClick={() => void ipc.openPermissionSettings(kind)}
+          className="btn-secondary text-2xs"
+        >
+          open settings
+        </button>
+      ) : null}
     </div>
   );
 }

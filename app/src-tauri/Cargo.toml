@@ -29,6 +29,7 @@ thiserror = "2"
 ulid = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 futures-util = "0.3"
+tokio-stream = { version = "0.1", features = ["io-util"] }
 nix = { version = "0.29", features = ["signal"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
