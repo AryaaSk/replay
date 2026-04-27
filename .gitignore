@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+build/
+app/src-tauri/target/
+app/src-tauri/gen/
+app/sidecar/dist/
+app/src-tauri/binaries/replay-cli
+app/src-tauri/binaries/replay-cli-runtime/
+app/src-tauri/binaries/replay-cli*-apple-darwin
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Replay app runtime data (lives in ~/Library/Application Support/Replay,
+# but if anyone symlinks or runs from cwd, ignore here too)
+.screenpipe/
+replays/

@@ -1,0 +1,87 @@
+use tauri::image::Image;
+use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Emitter, Manager};
+
+use crate::errors::Result;
+
+const TRAY_ID: &str = "main";
+
+// Embed both PNGs at compile time so we never have to read from disk at runtime
+// and the tray can swap instantly when capture state changes.
+const IDLE_PNG: &[u8] = include_bytes!("../icons/tray-idle.png");
+const CAPTURING_PNG: &[u8] = include_bytes!("../icons/tray-capturing.png");
+
+pub fn install(app: &AppHandle) -> Result<()> {
+    let show_window = MenuItem::with_id(app, "show", "Open Replay", true, None::<&str>)
+        .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
+    let stop_capture = MenuItem::with_id(
+        app,
+        "stop-capture",
+        "Stop capturing now",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
+    let quit = PredefinedMenuItem::quit(app, Some("Quit Replay"))
+        .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
+
+    let menu = Menu::with_items(app, &[&show_window, &stop_capture, &quit])
+        .map_err(|e| crate::errors::ReplayError::Internal(format!("menubar: {e}")))?;
+
+    let idle_image = Image::from_bytes(IDLE_PNG)
+        .map_err(|e| crate::errors::ReplayError::Internal(format!("idle icon: {e}")))?;
+
+    TrayIconBuilder::with_id(TRAY_ID)
+        .menu(&menu)
+        .icon(idle_image)
+        .icon_as_template(true) // recolour to match menubar in idle
+        .on_menu_event(|app, event: MenuEvent| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "stop-capture" => {
+                let app_clone = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app_clone.state::<crate::state::AppState>();
+                    if let Some(child) = state.screenpipe_child.lock().await.take() {
+                        let _ = crate::recording::kill_child(child).await;
+                    }
+                    *state.mode.lock().await = crate::state::CaptureMode::Fresh;
+                    *state.recording_start.lock().await = None;
+                    crate::events::broadcast(&app_clone, &state).await;
+                    let _ = app_clone.emit("capture-stopped-from-tray", ());
+                });
+            }
+            _ => {}
+        })
+        .build(app)
+        .map_err(|e| crate::errors::ReplayError::Internal(format!("tray build: {e}")))?;
+
+    Ok(())
+}
+
+/// Swap the tray icon based on whether screenpipe is currently capturing.
+/// Called from `events::broadcast` so it stays in lockstep with the frontend.
+pub fn set_capturing(app: &AppHandle, capturing: bool) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let bytes = if capturing { CAPTURING_PNG } else { IDLE_PNG };
+    match Image::from_bytes(bytes) {
+        Ok(img) => {
+            if let Err(e) = tray.set_icon(Some(img)) {
+                log::warn!("tray.set_icon failed: {e}");
+            }
+            // Capturing icon is solid red — never template. Idle is template
+            // so it adapts to dark/light menu bars.
+            if let Err(e) = tray.set_icon_as_template(!capturing) {
+                log::warn!("tray.set_icon_as_template failed: {e}");
+            }
+        }
+        Err(e) => log::warn!("tray icon decode failed: {e}"),
+    }
+}

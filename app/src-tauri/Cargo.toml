@@ -1,0 +1,39 @@
+[package]
+name = "replay"
+version = "0.1.0"
+description = "Click record. Show your bug. Get a perfect description for your AI agent."
+authors = ["Aryaa SK"]
+edition = "2021"
+
+[lib]
+name = "replay_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["stream", "json"] }
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+env_logger = "0.11"
+thiserror = "2"
+ulid = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+futures-util = "0.3"
+nix = { version = "0.29", features = ["signal"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+core-foundation = "0.10"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Replay",
+  "version": "0.1.0",
+  "identifier": "com.aryaa.replay",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build && npm run sidecar:build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Replay",
+        "width": 720,
+        "height": 560,
+        "minWidth": 540,
+        "minHeight": 420,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://api.anthropic.com"
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "dmg",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "externalBin": ["binaries/replay-cli"],
+    "category": "DeveloperTool",
+    "shortDescription": "Structured bug reports for AI agents",
+    "longDescription": "Replay turns short macOS screen recordings into AI-ingestable structured timelines plus key frames, suitable for pasting into Claude Code, Cursor, or any AI coding agent."
+  },
+  "plugins": {}
+}
