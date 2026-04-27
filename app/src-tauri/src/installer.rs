@@ -224,11 +224,8 @@ async fn sha256_file(path: &Path) -> Result<String> {
 }
 
 fn extract_tar_gz(archive: &Path, dest: &Path) -> Result<()> {
-    use std::fs::File;
-    use std::io::BufReader;
     // Minimal tar.gz extraction without pulling a tar crate: shell out to `tar`,
     // which ships with macOS by default. Keeps Cargo deps small.
-    let _ = (File::open(archive), BufReader::new); // (kept to please linter on non-macOS)
     let status = std::process::Command::new("tar")
         .arg("-xzf")
         .arg(archive)

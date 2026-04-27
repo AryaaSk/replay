@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::Manager;
 
 mod errors;
 mod events;

@@ -46,11 +46,15 @@ pub enum ReplayError {
     Internal(String),
 }
 
+pub type Result<T> = std::result::Result<T, ReplayError>;
+
 // Errors are serialized to the frontend as plain strings via Tauri commands.
+// Use std::result::Result here to disambiguate from our `Result<T>` alias.
 impl Serialize for ReplayError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_str(self.to_string().as_ref())
     }
 }
-
-pub type Result<T> = std::result::Result<T, ReplayError>;
