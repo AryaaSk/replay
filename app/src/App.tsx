@@ -50,6 +50,11 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [permissions, setPermissions] = useState<PermissionsReport | null>(null);
   const [permissionsChecking, setPermissionsChecking] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<
+    | { version: string; currentVersion: string; install: () => Promise<void> }
+    | null
+  >(null);
+  const [updateInstalling, setUpdateInstalling] = useState(false);
   const [, setSidecarTail] = useState<SidecarEvent | null>(null);
 
   // Mutable ref holding the latest handlers — populated by an effect at the
@@ -123,6 +128,22 @@ export default function App() {
         }
 
         await refreshReplays();
+
+        // Auto-update check on launch. If a newer signed .dmg exists at our
+        // GitHub Releases endpoint, surface a banner. Failure is silent —
+        // a missing/unreachable update endpoint shouldn't break the app.
+        try {
+          const upd = await ipc.checkForUpdate();
+          if (upd) {
+            setPendingUpdate({
+              version: upd.version,
+              currentVersion: upd.currentVersion,
+              install: upd.install,
+            });
+          }
+        } catch (e) {
+          console.warn("update check failed:", e);
+        }
 
         // Permissions probe: spawn screenpipe briefly to read its
         // self-reported permission status. Only runs if the binary is
@@ -301,6 +322,26 @@ export default function App() {
           <div className="text-2xs uppercase tracking-[0.3em] text-dust">
             ◐ buffers last 60s · clip after the fact
           </div>
+        ) : null}
+        {pendingUpdate ? (
+          <button
+            onClick={async () => {
+              if (updateInstalling) return;
+              setUpdateInstalling(true);
+              try {
+                await pendingUpdate.install();
+              } catch (e) {
+                setError(`update install failed: ${String(e)}`);
+                setUpdateInstalling(false);
+              }
+            }}
+            disabled={updateInstalling}
+            className="px-3 py-1.5 border border-moss/40 bg-moss/5 hover:border-moss hover:bg-moss/10 transition-colors text-2xs uppercase tracking-widest text-moss max-w-md text-center disabled:opacity-50"
+          >
+            {updateInstalling
+              ? "▮ downloading update…"
+              : `↑ replay ${pendingUpdate.version} available — install + relaunch`}
+          </button>
         ) : null}
         {permissionsChecking ? (
           <div className="text-2xs uppercase tracking-[0.3em] text-dust animate-tick">

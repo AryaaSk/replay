@@ -40,12 +40,27 @@
       "icons/icon.icns"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "Developer ID Application: <YOUR NAME> (TEAMID)",
+      "providerShortName": "TEAMID",
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "",
+      "frameworks": []
     },
     "externalBin": ["binaries/replay-cli"],
     "category": "DeveloperTool",
     "shortDescription": "Structured bug reports for AI agents",
     "longDescription": "Replay turns short macOS screen recordings into AI-ingestable structured timelines plus key frames, suitable for pasting into Claude Code, Cursor, or any AI coding agent."
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/AryaaSk/replay/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_YOUR_TAURI_UPDATER_PUBLIC_KEY",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
 }

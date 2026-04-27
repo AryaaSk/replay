@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import type {
   AgentStatus,
   CaptureState,
@@ -211,4 +213,23 @@ export const ipc = {
 
   openAppFolder: (kind: "root" | "replays" | "screenpipe" | "logs") =>
     invoke<void>("open_app_folder", { kind }),
+
+  /**
+   * Check for an update, download it if available, install on next relaunch.
+   * Returns metadata about what was found (or null if no update). Caller
+   * decides whether to prompt the user or relaunch immediately.
+   */
+  checkForUpdate: async () => {
+    const update = await check();
+    if (!update) return null;
+    return {
+      version: update.version,
+      currentVersion: update.currentVersion,
+      body: update.body,
+      install: async () => {
+        await update.downloadAndInstall();
+        await relaunch();
+      },
+    };
+  },
 };
