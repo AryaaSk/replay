@@ -42,9 +42,18 @@ export function SettingsPane({ onClose }: Props) {
   }
 
   const update = (patch: Partial<S>) => {
+    if (!settings) return;
     const next = { ...settings, ...patch };
     setSettings(next);
-    void ipc.setSettings(next);
+    // Await the Rust roundtrip so failures aren't swallowed. If save fails
+    // the disk and Rust state stay consistent (Rust state isn't mutated
+    // until after disk write succeeds), and we re-fetch to bring React
+    // back into sync rather than letting it lie.
+    ipc.setSettings(next).catch(async (e: unknown) => {
+      setKeyMessage(`save failed: ${String(e)}`);
+      const fresh = await ipc.getSettings();
+      setSettings(fresh);
+    });
   };
 
   const onProviderChange = (next: Provider) => {
@@ -92,7 +101,7 @@ export function SettingsPane({ onClose }: Props) {
       ? OPENAI_MODELS
       : [];
 
-  const providerOptions: Array<{ v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string }> = [
+  const providerOptions: Array<{ v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string; note?: string }> = [
     {
       v: "local-claude",
       label: "local · claude code",
@@ -100,6 +109,7 @@ export function SettingsPane({ onClose }: Props) {
       sub: agents?.claude.installed
         ? `via ${agents.claude.path ?? "claude"} · uses your CLI auth`
         : "claude not found in PATH",
+      note: "session transcripts persist at ~/.claude/projects/. cleared when you delete a replay.",
     },
     {
       v: "local-codex",
@@ -108,6 +118,7 @@ export function SettingsPane({ onClose }: Props) {
       sub: agents?.codex.installed
         ? `via ${agents.codex.path ?? "codex"} · uses your CLI auth`
         : "codex not found in PATH",
+      note: "session transcripts persist in ~/.codex/. cleared when you delete a replay.",
     },
     {
       v: "anthropic",
@@ -357,7 +368,7 @@ function ProviderRow({
   active,
   onClick,
 }: {
-  option: { v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string };
+  option: { v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string; note?: string };
   active: boolean;
   onClick: () => void;
 }) {
@@ -380,10 +391,15 @@ function ProviderRow({
     >
       <span className={`${statusColor} text-xs leading-5 shrink-0 w-3`}>{statusGlyph}</span>
       <span className="flex-1 min-w-0">
-        <span className={["block text-xs", active ? "text-bone" : "text-bone"].join(" ")}>{option.label}</span>
+        <span className="block text-xs text-bone">{option.label}</span>
         <span className="block text-2xs uppercase tracking-widest text-dust truncate mt-0.5">
           {option.sub}
         </span>
+        {active && option.note ? (
+          <span className="block text-2xs text-dust normal-case tracking-normal mt-1.5 leading-relaxed">
+            ⓘ {option.note}
+          </span>
+        ) : null}
       </span>
     </button>
   );

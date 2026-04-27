@@ -50,7 +50,12 @@ pub fn ensure_dirs() -> Result<()> {
         replays_dir()?,
         logs_dir()?,
     ] {
-        std::fs::create_dir_all(dir)?;
+        std::fs::create_dir_all(&dir).map_err(|e| {
+            ReplayError::Internal(format!(
+                "ensure_dirs: create_dir_all({}) failed: {e}",
+                dir.display()
+            ))
+        })?;
     }
     Ok(())
 }

@@ -44,9 +44,15 @@ export default function App() {
         const state = await ipc.getCaptureState();
         setCaptureState(state);
 
-        // First-run / provider-availability check. If the saved provider isn't
-        // available right now (CLI uninstalled, key wiped), auto-pick the best
-        // option that IS available so the user isn't stuck.
+        // Provider availability + first-run defaulting. Logic:
+        //  - If saved provider is currently usable, KEEP it (user's explicit choice wins).
+        //  - If saved provider is NOT usable (CLI gone / key wiped), auto-fall back
+        //    to the best available option, ranked: local-claude → local-codex →
+        //    anthropic-with-key → openai-with-key.
+        //  - The "explicit choice wins" rule depends on the saved provider being
+        //    a real choice. Treat the literal default value (which is local-claude)
+        //    as not-yet-chosen — so an old settings.json from a previous default
+        //    of anthropic doesn't trap users with stale picks.
         const [agents, savedSettings, hasAnthropicKey, hasOpenAIKey] = await Promise.all([
           ipc.agentStatus(),
           ipc.getSettings(),
@@ -54,12 +60,13 @@ export default function App() {
           ipc.hasApiKey("openai"),
         ]);
         const currentProvider = savedSettings.provider;
-        const providerOk =
-          (currentProvider === "local-claude" && agents.claude.installed) ||
-          (currentProvider === "local-codex" && agents.codex.installed) ||
-          (currentProvider === "anthropic" && hasAnthropicKey) ||
-          (currentProvider === "openai" && hasOpenAIKey);
-        if (!providerOk) {
+        const providerUsable = (p: typeof currentProvider): boolean =>
+          (p === "local-claude" && agents.claude.installed) ||
+          (p === "local-codex" && agents.codex.installed) ||
+          (p === "anthropic" && hasAnthropicKey) ||
+          (p === "openai" && hasOpenAIKey);
+
+        if (!providerUsable(currentProvider)) {
           const fallback = agents.claude.installed
             ? "local-claude"
             : agents.codex.installed

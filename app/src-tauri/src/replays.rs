@@ -23,8 +23,14 @@ pub fn list() -> Result<Vec<ReplaySummary>> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
+    let read = std::fs::read_dir(&dir).map_err(|e| {
+        crate::errors::ReplayError::Internal(format!(
+            "list replays: read_dir({}) failed: {e}",
+            dir.display()
+        ))
+    })?;
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(&dir)? {
+    for entry in read {
         let entry = entry?;
         if !entry.path().is_dir() {
             continue;

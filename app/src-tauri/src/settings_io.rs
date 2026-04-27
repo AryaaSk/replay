@@ -20,11 +20,27 @@ pub fn load() -> Result<Settings> {
 pub fn save(settings: &Settings) -> Result<()> {
     let path = paths::settings_path()?;
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            crate::errors::ReplayError::Internal(format!(
+                "settings save: create_dir_all({}) failed: {e}",
+                parent.display()
+            ))
+        })?;
     }
     let bytes = serde_json::to_vec_pretty(settings)?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, &path)?;
+    std::fs::write(&tmp, bytes).map_err(|e| {
+        crate::errors::ReplayError::Internal(format!(
+            "settings save: write({}) failed: {e}",
+            tmp.display()
+        ))
+    })?;
+    std::fs::rename(&tmp, &path).map_err(|e| {
+        crate::errors::ReplayError::Internal(format!(
+            "settings save: rename({} -> {}) failed: {e}",
+            tmp.display(),
+            path.display()
+        ))
+    })?;
     Ok(())
 }
