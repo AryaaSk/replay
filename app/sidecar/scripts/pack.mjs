@@ -26,9 +26,17 @@ const targetPath = join(binDir, targetName);
 // directory next to the app, then ship a thin shell wrapper that runs them.
 // SEA + native modules is finicky; a node-runtime sidecar is more reliable.
 const wrapperPath = join(binDir, "replay-cli");
+// Tauri copies our externalBin into target/<profile>/ at dev time but does
+// NOT copy the sibling replay-cli-runtime/ folder. The wrapper used to compute
+// $DIR via BASH_SOURCE which resolves to the *copied* location — where there's
+// no runtime/. Stamp the absolute source path so the wrapper always finds the
+// runtime regardless of which location it gets executed from.
+//
+// Trade-off: not portable. Fine for dev. Production .app bundle will need the
+// runtime included via tauri.conf.json's bundle.resources (next iteration).
+const runtimeIndex = join(binDir, "replay-cli-runtime", "index.js");
 const wrapperContent = `#!/usr/bin/env bash
-DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
-exec /usr/bin/env node "$DIR/replay-cli-runtime/index.js" "$@"
+exec /usr/bin/env node "${runtimeIndex}" "$@"
 `;
 await fs.writeFile(wrapperPath, wrapperContent);
 await fs.chmod(wrapperPath, 0o755);

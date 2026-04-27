@@ -97,23 +97,35 @@ pub async fn stop_prewarm(app: AppHandle, state: AppState) -> Result<()> {
 /// Returns ISO start timestamp.
 pub async fn start_recording(app: AppHandle, state: AppState) -> Result<String> {
     let mode = *state.mode.lock().await;
-    let now = Utc::now().to_rfc3339();
 
+    // Pre-flight: ensure no recording is already in progress before we do any work.
     {
-        let mut current = state.recording_start.lock().await;
+        let current = state.recording_start.lock().await;
         if current.is_some() {
             return Err(ReplayError::AlreadyRecording);
         }
-        *current = Some(now.clone());
     }
 
     if matches!(mode, CaptureMode::Fresh) {
+        // Cold-spawn: start screenpipe AND wait for it to be live before
+        // bookmarking the recording start. screenpipe takes ~1-2s to begin
+        // capturing after process spawn — if we set recording_start at spawn
+        // time, the first ~2s of the "recording" actually captures nothing.
         let mut guard = state.screenpipe_child.lock().await;
         if guard.is_none() {
             *guard = Some(spawn_screenpipe(&state).await?);
+            drop(guard);
+            crate::events::broadcast(&app, &state).await;
+            // Brief warmup. Could be smarter (poll the DB until first row
+            // appears) but a fixed delay is honest enough for v0.
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
         }
     }
-    // In always-warm mode, child already exists; just mark the start.
+    // In always-warm mode, the child already exists and capture is already
+    // live, so no warmup needed.
+
+    let now = Utc::now().to_rfc3339();
+    *state.recording_start.lock().await = Some(now.clone());
 
     crate::events::broadcast(&app, &state).await;
     if let Err(e) = app.emit("recording-started", &now) {
