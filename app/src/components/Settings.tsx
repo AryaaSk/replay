@@ -4,6 +4,7 @@ import {
   ANTHROPIC_MODELS,
   DEFAULT_MODEL_FOR,
   OPENAI_MODELS,
+  type AgentStatus,
   type AnthropicModel,
   type OpenAIModel,
   type Provider,
@@ -18,6 +19,7 @@ export function SettingsPane({ onClose }: Props) {
   const [settings, setSettings] = useState<S | null>(null);
   const [hasAnthropic, setHasAnthropic] = useState(false);
   const [hasOpenAI, setHasOpenAI] = useState(false);
+  const [agents, setAgents] = useState<AgentStatus | null>(null);
   const [anthropicInput, setAnthropicInput] = useState("");
   const [openaiInput, setOpenaiInput] = useState("");
   const [keyMessage, setKeyMessage] = useState<string>("");
@@ -26,6 +28,7 @@ export function SettingsPane({ onClose }: Props) {
     void ipc.getSettings().then(setSettings);
     void ipc.hasApiKey("anthropic").then(setHasAnthropic);
     void ipc.hasApiKey("openai").then(setHasOpenAI);
+    void ipc.agentStatus().then(setAgents);
   }, []);
 
   if (!settings) {
@@ -81,8 +84,44 @@ export function SettingsPane({ onClose }: Props) {
     setTimeout(() => setKeyMessage(""), 2000);
   };
 
+  const isLocalAgent = settings.provider === "local-claude" || settings.provider === "local-codex";
   const modelOptions =
-    settings.provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
+    settings.provider === "anthropic"
+      ? ANTHROPIC_MODELS
+      : settings.provider === "openai"
+      ? OPENAI_MODELS
+      : [];
+
+  const providerOptions: Array<{ v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string }> = [
+    {
+      v: "local-claude",
+      label: "local · claude code",
+      status: agents?.claude.installed ? "available" : "missing",
+      sub: agents?.claude.installed
+        ? `via ${agents.claude.path ?? "claude"} · uses your CLI auth`
+        : "claude not found in PATH",
+    },
+    {
+      v: "local-codex",
+      label: "local · codex cli",
+      status: agents?.codex.installed ? "available" : "missing",
+      sub: agents?.codex.installed
+        ? `via ${agents.codex.path ?? "codex"} · uses your CLI auth`
+        : "codex not found in PATH",
+    },
+    {
+      v: "anthropic",
+      label: "api · anthropic claude",
+      status: hasAnthropic ? "available" : "key-needed",
+      sub: hasAnthropic ? "byok · key in keychain" : "byok · paste a key below",
+    },
+    {
+      v: "openai",
+      label: "api · openai gpt",
+      status: hasOpenAI ? "available" : "key-needed",
+      sub: hasOpenAI ? "byok · key in keychain" : "byok · paste a key below",
+    },
+  ];
 
   return (
     <div className="absolute inset-0 bg-ink flex flex-col animate-fade-in">
@@ -102,34 +141,44 @@ export function SettingsPane({ onClose }: Props) {
 
       <div className="flex-1 overflow-auto px-6 py-5 space-y-7">
         <Section index="01" title="Provider">
-          <Radio
-            value={settings.provider}
-            options={[
-              { v: "anthropic", label: "anthropic claude" },
-              { v: "openai", label: "openai gpt" },
-            ]}
-            onChange={(v) => onProviderChange(v as Provider)}
-          />
+          <div className="flex flex-col gap-1.5">
+            {providerOptions.map((opt) => (
+              <ProviderRow
+                key={opt.v}
+                option={opt}
+                active={settings.provider === opt.v}
+                onClick={() => onProviderChange(opt.v)}
+              />
+            ))}
+          </div>
         </Section>
 
-        <Section index="02" title="Model">
-          <Radio
-            value={settings.model}
-            options={modelOptions.map((m) => ({ v: m.id, label: m.label }))}
-            onChange={(v) =>
-              update({
-                model:
-                  settings.provider === "anthropic"
-                    ? (v as AnthropicModel)
-                    : (v as OpenAIModel),
-              })
-            }
-          />
-        </Section>
+        {!isLocalAgent ? (
+          <Section index="02" title="Model">
+            <Radio
+              value={settings.model}
+              options={modelOptions.map((m) => ({ v: m.id, label: m.label }))}
+              onChange={(v) =>
+                update({
+                  model:
+                    settings.provider === "anthropic"
+                      ? (v as AnthropicModel)
+                      : (v as OpenAIModel),
+                })
+              }
+            />
+          </Section>
+        ) : (
+          <Section index="02" title="Model">
+            <div className="text-2xs uppercase tracking-widest text-dust">
+              uses your cli's configured model · no replay override
+            </div>
+          </Section>
+        )}
 
         <Section index="03" title="API keys">
           <div className="text-2xs text-dust uppercase tracking-widest">
-            stored in macos keychain · only the active provider's key is used
+            byok api providers only · stored in macos keychain · local agents use their own auth
           </div>
           <div className="space-y-3 mt-3">
             <KeyInput
@@ -299,6 +348,43 @@ function Toggle({
         <div className="text-xs text-bone">{label}</div>
         {help ? <div className="text-2xs text-dust mt-0.5 leading-relaxed">{help}</div> : null}
       </div>
+    </button>
+  );
+}
+
+function ProviderRow({
+  option,
+  active,
+  onClick,
+}: {
+  option: { v: Provider; label: string; status: "available" | "missing" | "key-needed"; sub: string };
+  active: boolean;
+  onClick: () => void;
+}) {
+  const statusColor =
+    option.status === "available"
+      ? "text-moss"
+      : option.status === "key-needed"
+      ? "text-ash"
+      : "text-ember";
+  const statusGlyph = option.status === "available" ? "●" : option.status === "key-needed" ? "○" : "▲";
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        "w-full flex items-start gap-3 px-3 py-2 text-left border transition-colors",
+        active
+          ? "border-bone bg-carbon"
+          : "border-rule hover:border-grit hover:bg-carbon/50",
+      ].join(" ")}
+    >
+      <span className={`${statusColor} text-xs leading-5 shrink-0 w-3`}>{statusGlyph}</span>
+      <span className="flex-1 min-w-0">
+        <span className={["block text-xs", active ? "text-bone" : "text-bone"].join(" ")}>{option.label}</span>
+        <span className="block text-2xs uppercase tracking-widest text-dust truncate mt-0.5">
+          {option.sub}
+        </span>
+      </span>
     </button>
   );
 }

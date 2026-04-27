@@ -5,11 +5,36 @@ export type CaptureMode = "fresh" | "always-warm";
 
 export type LookbackSeconds = 30 | 60 | 120 | 300;
 
-export type Provider = "anthropic" | "openai";
+export type Provider = "anthropic" | "openai" | "local-claude" | "local-codex";
 
 export type AnthropicModel = "claude-sonnet-4-6" | "claude-haiku-4-5" | "claude-opus-4-7";
 export type OpenAIModel = "gpt-5" | "gpt-5-mini" | "gpt-4.1";
-export type ModelChoice = AnthropicModel | OpenAIModel;
+export type ModelChoice = AnthropicModel | OpenAIModel | "";
+
+export const PROVIDER_LABELS: Record<Provider, string> = {
+  "anthropic": "Anthropic Claude (BYOK)",
+  "openai": "OpenAI GPT (BYOK)",
+  "local-claude": "Local Claude Code",
+  "local-codex": "Local Codex CLI",
+};
+
+export const PROVIDER_REQUIRES_KEY: Record<Provider, "anthropic" | "openai" | null> = {
+  "anthropic": "anthropic",
+  "openai": "openai",
+  "local-claude": null,
+  "local-codex": null,
+};
+
+export interface AgentInfo {
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+}
+
+export interface AgentStatus {
+  claude: AgentInfo;
+  codex: AgentInfo;
+}
 
 export const ANTHROPIC_MODELS: ReadonlyArray<{ id: AnthropicModel; label: string }> = [
   { id: "claude-sonnet-4-6", label: "claude-sonnet-4-6 (recommended)" },
@@ -23,8 +48,10 @@ export const OPENAI_MODELS: ReadonlyArray<{ id: OpenAIModel; label: string }> = 
 ];
 
 export const DEFAULT_MODEL_FOR: Record<Provider, ModelChoice> = {
-  anthropic: "claude-sonnet-4-6",
-  openai: "gpt-5",
+  "anthropic": "claude-sonnet-4-6",
+  "openai": "gpt-5",
+  "local-claude": "",
+  "local-codex": "",
 };
 
 export interface CaptureState {
@@ -72,8 +99,8 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   alwaysWarm: false,
   lookbackSeconds: 60,
-  provider: "anthropic",
-  model: "claude-sonnet-4-6",
+  provider: "local-claude",
+  model: "",
   monitorId: null,
   filterMusic: true,
   usePiiRemoval: true,

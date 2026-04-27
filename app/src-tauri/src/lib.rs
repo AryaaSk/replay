@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
+mod agent;
 mod errors;
 mod events;
 mod installer;
@@ -154,9 +155,18 @@ async fn get_capture_state(state: tauri::State<'_, AppState>) -> Result<state::C
 }
 
 #[tauri::command]
+async fn agent_status() -> Result<agent::AgentStatus> {
+    Ok(agent::detect().await)
+}
+
+#[tauri::command]
 async fn has_api_key(provider: String) -> Result<bool> {
     let p = Provider::from_str(&provider)
         .ok_or_else(|| ReplayError::Internal(format!("unknown provider: {provider}")))?;
+    // Local agents don't need a Replay-managed key; they use the CLI's own auth.
+    if p.is_local_agent() {
+        return Ok(true);
+    }
     Ok(keychain::get_key(p)?.is_some())
 }
 
@@ -164,6 +174,11 @@ async fn has_api_key(provider: String) -> Result<bool> {
 async fn set_api_key(provider: String, key: String) -> Result<()> {
     let p = Provider::from_str(&provider)
         .ok_or_else(|| ReplayError::Internal(format!("unknown provider: {provider}")))?;
+    if p.is_local_agent() {
+        return Err(ReplayError::Internal(
+            "local-agent providers don't use Replay-managed keys".into(),
+        ));
+    }
     if key.trim().is_empty() {
         keychain::delete_key(p)?;
     } else {
@@ -233,6 +248,7 @@ pub fn run() {
             get_capture_state,
             has_api_key,
             set_api_key,
+            agent_status,
             quit_capturing,
             open_replay_dir,
         ])

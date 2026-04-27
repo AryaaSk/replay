@@ -29,12 +29,16 @@ export async function writeBundle(
 ): Promise<{ reportPath: string }> {
   await fs.mkdir(join(outDir, "frames"), { recursive: true });
 
-  // Frames
+  // Frames are already written by the entrypoint before the describe call so
+  // local agents can read them. Re-write defensively in case any are missing.
   for (let i = 0; i < framesCompressed.length; i++) {
     const frame = framesCompressed[i];
     const picked_i = picked[i];
     if (!frame || !picked_i) continue;
-    await fs.writeFile(join(outDir, "frames", picked_i.filename), frame.pngBytes);
+    const target = join(outDir, "frames", picked_i.filename);
+    if (!(await fileExists(target))) {
+      await fs.writeFile(target, frame.pngBytes);
+    }
   }
 
   // Report
@@ -72,6 +76,15 @@ export async function writeBundle(
   };
   await fs.writeFile(join(outDir, "metadata.json"), JSON.stringify(metadata, null, 2));
   return { reportPath };
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await fs.access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function inferTitle(markdown: string): string {

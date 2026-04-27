@@ -21,10 +21,12 @@ pub struct CaptureState {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum Provider {
     Anthropic,
     Openai,
+    LocalClaude,
+    LocalCodex,
 }
 
 impl Provider {
@@ -32,14 +34,21 @@ impl Provider {
         match self {
             Provider::Anthropic => "anthropic",
             Provider::Openai => "openai",
+            Provider::LocalClaude => "local-claude",
+            Provider::LocalCodex => "local-codex",
         }
     }
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "anthropic" => Some(Provider::Anthropic),
             "openai" => Some(Provider::Openai),
+            "local-claude" => Some(Provider::LocalClaude),
+            "local-codex" => Some(Provider::LocalCodex),
             _ => None,
         }
+    }
+    pub fn is_local_agent(&self) -> bool {
+        matches!(self, Provider::LocalClaude | Provider::LocalCodex)
     }
 }
 
@@ -64,7 +73,7 @@ pub struct Settings {
 }
 
 fn default_provider() -> Provider {
-    Provider::Anthropic
+    Provider::LocalClaude
 }
 
 impl Default for Settings {
@@ -72,8 +81,8 @@ impl Default for Settings {
         Self {
             always_warm: false,
             lookback_seconds: 60,
-            provider: Provider::Anthropic,
-            model: "claude-sonnet-4-6".into(),
+            provider: Provider::LocalClaude,
+            model: String::new(),
             monitor_id: None,
             filter_music: true,
             use_pii_removal: true,

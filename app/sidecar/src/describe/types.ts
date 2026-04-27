@@ -2,7 +2,7 @@ import type { CoalescedEvent } from "../coalescer/index.js";
 import type { CompressedFrame } from "../frames/compress.js";
 import type { PickedFrame } from "../frames/pick.js";
 
-export type Provider = "anthropic" | "openai";
+export type Provider = "anthropic" | "openai" | "local-claude" | "local-codex";
 
 export interface DescribeInput {
   provider: Provider;

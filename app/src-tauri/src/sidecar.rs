@@ -33,18 +33,13 @@ pub async fn run_render(
     let provider = settings_snapshot.provider;
     let settings_json = serde_json::to_string(&settings_snapshot).unwrap_or_else(|_| "{}".into());
 
-    let api_key = keychain::get_key(provider)?
-        .ok_or(ReplayError::ApiKeyMissing)?;
-    let env_var_name = match provider {
-        crate::state::Provider::Anthropic => "ANTHROPIC_API_KEY",
-        crate::state::Provider::Openai => "OPENAI_API_KEY",
-    };
-
     let data_dir = paths::screenpipe_data_dir()?;
     let out_dir = paths::replays_dir()?.join(replay_id);
     tokio::fs::create_dir_all(&out_dir).await?;
 
-    let sidecar = app
+    // For BYOK providers, pull the key from Keychain. For local-agent providers,
+    // no Replay-managed key — the agent CLI uses its own auth (claude auth, etc).
+    let mut sidecar_cmd = app
         .shell()
         .sidecar("replay-cli")
         .map_err(|e| ReplayError::Sidecar(format!("locate sidecar: {e}")))?
@@ -61,8 +56,19 @@ pub async fn run_render(
             replay_id,
             "--settings",
             &settings_json,
-        ])
-        .env(env_var_name, api_key);
+        ]);
+
+    if !provider.is_local_agent() {
+        let api_key = keychain::get_key(provider)?
+            .ok_or(ReplayError::ApiKeyMissing)?;
+        let env_var_name = match provider {
+            crate::state::Provider::Anthropic => "ANTHROPIC_API_KEY",
+            crate::state::Provider::Openai => "OPENAI_API_KEY",
+            _ => unreachable!(),
+        };
+        sidecar_cmd = sidecar_cmd.env(env_var_name, api_key);
+    }
+    let sidecar = sidecar_cmd;
 
     let (mut rx, _child) = sidecar
         .spawn()

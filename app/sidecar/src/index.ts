@@ -5,12 +5,14 @@ import { Coalescer, DEFAULT_REPLAY_CONFIG } from "./coalescer/index.js";
 import { compressFrame } from "./frames/compress.js";
 import { pickFrames } from "./frames/pick.js";
 import { describe } from "./describe/model.js";
+import type { Provider } from "./describe/types.js";
 import { openReadOnly, readRange } from "./reader/db.js";
 import { redactSecrets } from "./redact/secrets.js";
 import { findRegionsToBlur, parseOcrBoxes } from "./redact/ocr.js";
 import { writeBundle, inferTitle } from "./output/bundle.js";
 import { emit, logErr } from "./lib/log.js";
 import Database from "better-sqlite3";
+import { promises as fs } from "node:fs";
 import { join } from "node:path";
 
 const ArgsSchema = z.object({
@@ -59,7 +61,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   let model = "claude-sonnet-4-6";
-  let provider: "anthropic" | "openai" = "anthropic";
+  let provider: Provider = "local-claude";
   let mode: "fresh" | "always-warm" = "fresh";
   let lookbackSeconds = 0;
   let redactSecretsFlag = true;
@@ -68,8 +70,9 @@ async function main(): Promise<void> {
     try {
       const s = JSON.parse(args.settings) as Record<string, unknown>;
       if (typeof s["model"] === "string") model = s["model"] as string;
-      if (s["provider"] === "openai" || s["provider"] === "anthropic") {
-        provider = s["provider"];
+      const p = s["provider"];
+      if (p === "openai" || p === "anthropic" || p === "local-claude" || p === "local-codex") {
+        provider = p;
       }
       mode = s["always_warm"] === true ? "always-warm" : "fresh";
       if (typeof s["lookback_seconds"] === "number") lookbackSeconds = s["lookback_seconds"] as number;
@@ -142,7 +145,10 @@ async function main(): Promise<void> {
   }
   emit({ event: "redactions", text: textRedactions, image: imageBlurs });
 
-  // 6. Compress frames
+  // 6. Compress frames + write them to disk early. For local-agent providers
+  //    the agent will read these from disk; for API providers we'll also pass
+  //    them as base64 in the request, but writing them upfront means the bundle
+  //    has all artifacts even if the describe call fails.
   const framesCompressed = [];
   for (const p of picked) {
     const snap = p.source.snapshot_path;
@@ -154,11 +160,17 @@ async function main(): Promise<void> {
       logErr("compress failed for", snap, String(e));
     }
   }
+  await fs.mkdir(join(args.out, "frames"), { recursive: true });
+  for (const f of framesCompressed) {
+    await fs.writeFile(join(args.out, "frames", f.filename), f.pngBytes);
+  }
 
   db.close();
 
-  // 7. Provider call
-  emit({ event: "calling_anthropic", model });
+  // 7. Provider call. For local-agent providers the agent is invoked in
+  //    args.out as cwd and writes report.md directly; describeWithLocalAgent
+  //    reads it back. For API providers the call returns markdown synchronously.
+  emit({ event: "calling_anthropic", model: provider.startsWith("local-") ? provider : model });
   const description = await describe({
     provider,
     model,
@@ -168,7 +180,7 @@ async function main(): Promise<void> {
     audioTranscript,
     startTs: args.from,
     endTs: args.to,
-  });
+  }, args.out);
 
   // 8. Bundle
   const title = inferTitle(description.markdown);

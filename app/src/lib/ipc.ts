@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AgentStatus,
   CaptureState,
   Provider,
   ReplayDetail,
@@ -164,6 +165,8 @@ export const ipc = {
   hasApiKey: (provider: Provider) => invoke<boolean>("has_api_key", { provider }),
   setApiKey: (provider: Provider, key: string) =>
     invoke<void>("set_api_key", { provider, key }),
+
+  agentStatus: () => invoke<AgentStatus>("agent_status"),
 
   quitCapturing: () => invoke<void>("quit_capturing"),
 

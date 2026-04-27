@@ -31,7 +31,7 @@ export default function App() {
     setReplays(list);
   }, []);
 
-  // Initial setup check + state subscriptions
+  // Initial setup check + state subscriptions + provider auto-fallback
   useEffect(() => {
     let unsubCapture: (() => void) | undefined;
     let unsubSidecar: (() => void) | undefined;
@@ -43,6 +43,37 @@ export default function App() {
         setNeedsInstall(!status.binaryInstalled);
         const state = await ipc.getCaptureState();
         setCaptureState(state);
+
+        // First-run / provider-availability check. If the saved provider isn't
+        // available right now (CLI uninstalled, key wiped), auto-pick the best
+        // option that IS available so the user isn't stuck.
+        const [agents, savedSettings, hasAnthropicKey, hasOpenAIKey] = await Promise.all([
+          ipc.agentStatus(),
+          ipc.getSettings(),
+          ipc.hasApiKey("anthropic"),
+          ipc.hasApiKey("openai"),
+        ]);
+        const currentProvider = savedSettings.provider;
+        const providerOk =
+          (currentProvider === "local-claude" && agents.claude.installed) ||
+          (currentProvider === "local-codex" && agents.codex.installed) ||
+          (currentProvider === "anthropic" && hasAnthropicKey) ||
+          (currentProvider === "openai" && hasOpenAIKey);
+        if (!providerOk) {
+          const fallback = agents.claude.installed
+            ? "local-claude"
+            : agents.codex.installed
+            ? "local-codex"
+            : hasAnthropicKey
+            ? "anthropic"
+            : hasOpenAIKey
+            ? "openai"
+            : null;
+          if (fallback && fallback !== currentProvider) {
+            await ipc.setSettings({ ...savedSettings, provider: fallback });
+          }
+        }
+
         await refreshReplays();
       } catch (e) {
         setError(String(e));
@@ -64,11 +95,21 @@ export default function App() {
     setError(null);
     try {
       const settings = await ipc.getSettings();
-      const hasKey = await ipc.hasApiKey(settings.provider);
-      if (!hasKey) {
-        const providerLabel = settings.provider === "openai" ? "OpenAI" : "Anthropic";
-        setError(`No ${providerLabel} API key — go to settings`);
-        return;
+      if (settings.provider === "local-claude" || settings.provider === "local-codex") {
+        const agents = await ipc.agentStatus();
+        const installed = settings.provider === "local-claude" ? agents.claude.installed : agents.codex.installed;
+        if (!installed) {
+          const cli = settings.provider === "local-claude" ? "claude" : "codex";
+          setError(`${cli} cli not found — install it or pick a different provider in settings`);
+          return;
+        }
+      } else {
+        const hasKey = await ipc.hasApiKey(settings.provider);
+        if (!hasKey) {
+          const providerLabel = settings.provider === "openai" ? "openai" : "anthropic";
+          setError(`no ${providerLabel} api key — go to settings`);
+          return;
+        }
       }
       await ipc.startRecording();
     } catch (e) {
