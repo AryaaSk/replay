@@ -45,9 +45,40 @@ Replay turns a 30-90s screen capture into the **right format for an AI agent**: 
 
 ## Status
 
-**Pre-release v0.** Built but not yet shipped. See [PLAN.md](./PLAN.md) for the full architecture spec and [app/README.md](./app/README.md) for run instructions.
+**Pre-release v0, source-only.** Not shipped as a notarised .dmg — clone and build from source. Takes ~10 minutes the first time including downloading dependencies.
 
-If you want to try it: clone, follow [app/README.md](./app/README.md), bring your own Anthropic API key (BYOK).
+See [BUILDING.md](./BUILDING.md) for the full step-by-step. The short version is below.
+
+### Try it (5-step build)
+
+Prerequisites: macOS 13+, Node 22+, Rust toolchain ([rustup](https://rustup.rs)), and either Claude Code or an Anthropic API key.
+
+```bash
+# 1. Clone
+git clone https://github.com/AryaaSk/replay
+cd replay/app
+
+# 2. Install JS dependencies
+npm install
+cd sidecar && npm install && cd ..
+
+# 3. Build the sidecar binary
+npm run sidecar:build
+
+# 4. Generate icons (one-time)
+npm run icons && npm run icons:app
+
+# 5. Run in dev mode
+npm run tauri:dev
+```
+
+First launch:
+- Click `Install screenpipe` in the modal (~45MB download into the app's local folder).
+- macOS will prompt for Screen Recording / Microphone / Accessibility permissions on the first record. Grant each, then quit and re-open Replay.
+- Settings → Provider: defaults to **local Claude Code** (uses your existing `claude` CLI auth, no API key needed). Or paste an Anthropic / OpenAI key for BYOK API mode.
+- Hit the big red Record button. Reproduce something. Click Stop. Watch Claude generate the structured replay report.
+
+For a packaged `.app` you can drag to /Applications: `npm run tauri:build` — produces a signed .dmg in `src-tauri/target/release/bundle/dmg/`. (See [BUILDING.md](./BUILDING.md) for the Apple Developer cert / Gatekeeper notes.)
 
 ---
 
@@ -90,14 +121,14 @@ Read [PLAN.md](./PLAN.md) for the full spec — components, file system layout, 
 ```
 .
 ├── README.md         ← you are here
+├── BUILDING.md       step-by-step build + run guide
 ├── PLAN.md           comprehensive architecture spec
 ├── LICENSE           MIT
 └── app/              the actual code
-    ├── README.md     dev/run instructions
     ├── package.json
     ├── src/          Vite + React frontend
-    ├── src-tauri/    Rust core
-    ├── sidecar/      Node CLI: heavy-lift pipeline
+    ├── src-tauri/    Rust core (Tauri 2)
+    ├── sidecar/      Node CLI: read DB → coalesce → render
     └── shared/       types shared between frontend and sidecar
 ```
 
