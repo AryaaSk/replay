@@ -41,8 +41,8 @@
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "Developer ID Application: <YOUR NAME> (TEAMID)",
-      "providerShortName": "TEAMID",
+      "signingIdentity": "Developer ID Application: Saravana Kumar (R7WQ479X2H)",
+      "providerShortName": "R7WQ479X2H",
       "entitlements": "entitlements.plist",
       "exceptionDomain": "",
       "frameworks": []
