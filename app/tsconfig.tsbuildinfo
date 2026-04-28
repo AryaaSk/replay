@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/header.tsx","./src/components/installmodal.tsx","./src/components/previewpane.tsx","./src/components/recordbutton.tsx","./src/components/replaylist.tsx","./src/components/settings.tsx","./src/components/sidebar.tsx","./src/lib/events.ts","./src/lib/ipc.ts","./shared/types.ts"],"version":"5.9.3"}
