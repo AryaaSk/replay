@@ -12,6 +12,7 @@
     "tauri:build": "tauri build",
     "sidecar:build": "cd sidecar && npm run build && npm run pack",
     "icons": "node scripts/gen-tray-icons.mjs",
+    "icons:app": "tauri icon src-tauri/icons/source.png -o src-tauri/icons",
     "typecheck": "tsc -b --noEmit && tsc -p sidecar/tsconfig.json --noEmit"
   },
   "dependencies": {

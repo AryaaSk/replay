@@ -82,21 +82,35 @@ await sharp(capturingBytes, { raw: { width: SIZE, height: SIZE, channels: 4 } })
   .png()
   .toFile(join(iconsDir, "tray-capturing.png"));
 
-// Provide larger app icons as throwaway placeholders too, so `tauri build` works
-// without a manual asset step. Production icons should replace these.
-const appIconBytes = makeFilledCircle([24, 24, 24]);
-for (const [size, name] of [
-  [32, "32x32.png"],
-  [128, "128x128.png"],
-  [256, "128x128@2x.png"],
-]) {
-  await sharp(appIconBytes, { raw: { width: SIZE, height: SIZE, channels: 4 } })
-    .resize(size, size)
-    .png()
-    .toFile(join(iconsDir, name));
+// App icons: produce a 1024×1024 source.png with the ember-disk placeholder.
+// `npm run icons:app` then runs `tauri icon` against it to generate every
+// variant macOS needs (32x32.png, 128x128.png, 128x128@2x.png, AND the
+// .icns container) — that's the file `tauri build` requires.
+const SRC_SIZE = 1024;
+const srcBuf = Buffer.alloc(SRC_SIZE * SRC_SIZE * 4);
+const cx2 = SRC_SIZE / 2 - 0.5;
+const cy2 = SRC_SIZE / 2 - 0.5;
+const r2 = SRC_SIZE / 2 - 32;   // leave a small margin so icon doesn't clip
+for (let y = 0; y < SRC_SIZE; y++) {
+  for (let x = 0; x < SRC_SIZE; x++) {
+    const dx = x - cx2;
+    const dy = y - cy2;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const i = (y * SRC_SIZE + x) * 4;
+    const inside = d <= r2;
+    const edge = d > r2 && d < r2 + 1.5;
+    const a = inside ? 1 : edge ? 1 - (d - r2) / 1.5 : 0;
+    // Flat ember disk (#E84E1B) on transparent background — matches the
+    // record button's solid colour. Production icon should replace.
+    srcBuf[i + 0] = 232;
+    srcBuf[i + 1] = 78;
+    srcBuf[i + 2] = 27;
+    srcBuf[i + 3] = Math.round(Math.max(0, Math.min(1, a)) * 255);
+  }
 }
-// icon.icns: synthesise a minimal one from the 256px PNG via macOS `iconutil`
-// would require an iconset folder. Skip — Tauri will warn but still bundle on
-// dev. Real app icons land in v0.1.
+await sharp(srcBuf, { raw: { width: SRC_SIZE, height: SRC_SIZE, channels: 4 } })
+  .png()
+  .toFile(join(iconsDir, "source.png"));
 
-console.log("wrote tray + placeholder app icons to", iconsDir);
+console.log("wrote tray icons + source.png to", iconsDir);
+console.log("now run: npm run icons:app   (generates the .icns from source.png)");
