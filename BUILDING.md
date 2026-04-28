@@ -97,7 +97,7 @@ The `.dmg` is **unsigned and unnotarised** — opening Replay.app triggers macOS
 2. Click **Open** in the warning dialog
 3. macOS remembers, future launches are silent
 
-This is a hobby project, not a shipped product — signing + notarisation needs an Apple Developer cert ($99/yr) and is out of scope. If you want to add it, Tauri's docs cover the `signingIdentity` / `entitlements` keys in `tauri.conf.json` and the `xcrun notarytool` flow.
+This is a hobby project, not a shipped product — signing + notarisation needs an Apple Developer cert ($99/yr) and is out of scope.
 
 ## Where Replay stores data
 

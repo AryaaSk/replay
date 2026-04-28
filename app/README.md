@@ -38,7 +38,6 @@ app/
 - macOS 13.0+
 - Node.js 22+ (for frontend dev + sidecar build)
 - Rust toolchain (`rustup`) — for the Tauri shell
-- Apple Developer account ($99/yr) — required for notarised distribution. Not required for `npm run tauri:dev`.
 
 ---
 
@@ -115,7 +114,7 @@ cd sidecar && npm run build && npm run pack && cd ..
 npm run tauri:build
 ```
 
-Produces a notarisation-ready `.app` and `.dmg` under `src-tauri/target/release/bundle/`. Sign + notarise with your Apple Developer credentials before publishing.
+Produces an unsigned `.app` and `.dmg` under `src-tauri/target/release/bundle/`. First launch requires right-click → Open to bypass Gatekeeper.
 
 ---
 

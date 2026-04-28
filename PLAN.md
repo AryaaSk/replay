@@ -41,22 +41,21 @@ Replay turns a 30-90 second screen capture into a precise structured timeline pl
 
 ## 2. End-user flow (happy path)
 
-12 steps from download to first replay:
+Eleven steps from clone to first replay:
 
-1. User downloads `Replay.dmg` from GitHub releases (~15MB).
-2. Drags Replay.app to /Applications. Double-clicks.
-3. Gatekeeper allows (notarised). App opens.
-4. **First-run modal:** "Replay uses screenpipe (open source) to capture screen + audio events. We install it locally to Replay's app folder, isolated from anything else on your system. ~80MB download." — `[ Install screenpipe ]` `[ Quit ]`
-5. User clicks Install. Progress bar. ~30-60s.
-6. Permissions onboarding: macOS prompts (sequenced) for Screen Recording, Microphone, Accessibility. App explains each.
-7. App lands on the main window. Capture mode defaults to **"Fresh each recording"** (cold-spawn, safer).
-8. User encounters a bug. Hits the **Record** button.
-9. ~1-2s startup latency (cold-spawn). Live indicator turns red. User reproduces the bug.
-10. User hits **Stop**. screenpipe process killed. ~3-5s processing spinner.
-11. Preview window opens with markdown timeline + key frames inline. User clicks **Copy markdown**.
-12. User pastes into Claude Code prompt. Done. Asks "why does this break?"
+1. User clones the repo and runs `npm run tauri:dev` (see BUILDING.md).
+2. App window opens.
+3. **First-run modal:** "Replay uses screenpipe (open source) to capture screen + audio events. We install it locally to Replay's app folder, isolated from anything else on your system. ~80MB download." — `[ Install screenpipe ]` `[ Quit ]`
+4. User clicks Install. Progress bar. ~30-60s.
+5. Permissions onboarding: macOS prompts (sequenced) for Screen Recording, Microphone, Accessibility. App explains each.
+6. App lands on the main window. Capture mode defaults to **"Fresh each recording"** (cold-spawn, safer).
+7. User encounters a bug. Hits the **Record** button.
+8. ~1-2s startup latency (cold-spawn). Live indicator turns red. User reproduces the bug.
+9. User hits **Stop**. screenpipe process killed. ~3-5s processing spinner.
+10. Preview window opens with markdown timeline + key frames inline. User clicks **Copy markdown**.
+11. User pastes into Claude Code prompt. Done. Asks "why does this break?"
 
-Subsequent recordings: skip steps 1-7. Three actions total: Record → Stop → Copy.
+Subsequent recordings: skip steps 1-6. Three actions total: Record → Stop → Copy.
 
 Power-user variant (always-warm + look-back): user toggles "Keep screenpipe always warm" in Settings. Now Record is instant and they can clip-after-the-fact via the look-back buffer.
 
@@ -750,37 +749,9 @@ If app force-quits or crashes: next launch detects orphaned screenpipe processes
 
 ---
 
-## 14. Distribution & code-signing
+## 14. Distribution
 
-### Build pipeline
-
-```
-1. Build frontend         → vite build → dist/
-2. Build sidecar          → esbuild --bundle → pkg → replay-cli (binary)
-3. Build Tauri            → cargo build --release; bundles dist/ + replay-cli
-4. Sign app               → codesign --deep --options runtime --sign "Developer ID Application: ..."
-5. Notarise               → xcrun notarytool submit Replay.app.zip --wait
-6. Staple                 → xcrun stapler staple Replay.app
-7. Build dmg              → create-dmg --window-size 600 400 ...
-8. Sign dmg               → codesign --sign "Developer ID Application: ..." Replay.dmg
-9. Upload to GitHub       → gh release create v0.x.x Replay.dmg
-```
-
-Apple Developer Program membership ($99/year) required for notarisation.
-
-### Auto-update (Sparkle)
-
-For v1, integrate Sparkle via the Tauri plugin. App checks for updates on launch, downloads in background, applies on next launch. Updates are signed by our key.
-
-For v0, manual download from GitHub releases is fine. Add Sparkle once we have >5 users worth caring about update friction.
-
-### Brew tap (v1)
-
-```bash
-brew install --cask aryaaask/replay/replay
-```
-
-Requires a homebrew-cask formula. Easy to add once the `.dmg` URL is stable.
+Source-only. Users clone the repo and run `npm run tauri:dev` (or `npm run tauri:build` for an unsigned `.dmg`). See BUILDING.md. No signing, no notarisation, no auto-update — Replay is a hobby project, not a shipped product.
 
 ---
 
@@ -800,8 +771,6 @@ Realistic but tight. If Tauri IPC pattern is rough on day 1-2, fall back to Elec
 
 ### Post-v0 backlog
 
-- Sparkle auto-update
-- Brew tap
 - MCP server for direct Claude Code / Cursor integration
 - Optional hosted: team replay libraries, shareable links
 - Linux/Windows ports (need a different capture engine — screenpipe has Windows but not great Linux support)
@@ -884,7 +853,7 @@ Replay v0:
 - Cold-spawn default, always-warm with janitor + look-back as opt-in
 - BYOK Anthropic, no backend
 - 1-week sprint, ~$0.05-0.10 per replay, ~3-5s render time
-- Distributed as notarised .dmg with first-run screenpipe install (~80MB)
+- Source-only distribution; first-run screenpipe install (~80MB) into the app's local folder
 
 The full architecture is built around two non-negotiable principles: **the user is always told when capture is happening** (three redundant indicators), and **capture exists only when the user has explicitly authorised it** (toggle defaults to fresh-each-recording).
 
