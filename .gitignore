@@ -10,6 +10,8 @@ app/sidecar/dist/
 app/src-tauri/binaries/replay-cli
 app/src-tauri/binaries/replay-cli-runtime/
 app/src-tauri/binaries/replay-cli*-apple-darwin
+app/tsconfig.tsbuildinfo
+app/sidecar/tsconfig.tsbuildinfo
 
 # Editor / OS
 .DS_Store
