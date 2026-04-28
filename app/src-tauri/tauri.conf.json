@@ -57,7 +57,7 @@
       "endpoints": [
         "https://github.com/AryaaSk/replay/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_YOUR_TAURI_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGMjM1QzA0QUM5NzQxQ0UKUldUT1FaZXNCRndqYjhEbUdDMEI0M1lCcTAzZkNGUGlYYjAwQWcrUGtFdVFIZ2dMS3dNanQ2bEwK",
       "windows": {
         "installMode": "passive"
       }
