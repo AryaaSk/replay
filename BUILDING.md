@@ -91,13 +91,13 @@ Output: `src-tauri/target/release/bundle/dmg/Replay_*.dmg` and the `.app` is als
 
 ### Gatekeeper warning on first launch
 
-The `.dmg` is **signed but not notarised** by default — opening Replay.app on a Mac other than the one that built it triggers macOS's "Apple cannot verify this app is free of malware" warning. Workaround per Mac, one-time:
+The `.dmg` is **unsigned and unnotarised** — opening Replay.app triggers macOS's "Apple cannot verify this app is free of malware" warning. Workaround, one-time per Mac:
 
 1. Right-click `Replay.app` → **Open**
 2. Click **Open** in the warning dialog
 3. macOS remembers, future launches are silent
 
-If you want to avoid the warning entirely you'd need to notarise the .dmg with an Apple Developer cert ($99/yr). Out of scope for this project; the relevant scaffolding is in `.github/workflows/release.yml` and `app/src-tauri/tauri.conf.json` if you ever want to set it up — see comments there.
+This is a hobby project, not a shipped product — signing + notarisation needs an Apple Developer cert ($99/yr) and is out of scope. If you want to add it, Tauri's docs cover the `signingIdentity` / `entitlements` keys in `tauri.conf.json` and the `xcrun notarytool` flow.
 
 ## Where Replay stores data
 

@@ -337,11 +337,7 @@ export function SettingsPane({ onClose }: Props) {
           </button>
         </Section>
 
-        <Section index="07b" title="App updates">
-          <UpdateCheck />
-        </Section>
-
-        <Section index="07c" title="screenpipe">
+        <Section index="07b" title="screenpipe">
           <div className="text-2xs uppercase tracking-widest text-dust">
             pinned · {settings.pinnedScreenpipeVersion ?? "latest known-good"}
           </div>
@@ -615,98 +611,6 @@ function PermissionRow({
           open settings
         </button>
       ) : null}
-    </div>
-  );
-}
-
-function UpdateCheck() {
-  type State =
-    | { kind: "idle" }
-    | { kind: "checking" }
-    | { kind: "uptodate" }
-    | {
-        kind: "available";
-        version: string;
-        currentVersion: string;
-        install: () => Promise<void>;
-      }
-    | { kind: "installing" }
-    | { kind: "error"; msg: string };
-  const [state, setState] = useState<State>({ kind: "idle" });
-
-  const check = async () => {
-    setState({ kind: "checking" });
-    try {
-      const upd = await ipc.checkForUpdate();
-      if (!upd) {
-        setState({ kind: "uptodate" });
-      } else {
-        setState({
-          kind: "available",
-          version: upd.version,
-          currentVersion: upd.currentVersion,
-          install: upd.install,
-        });
-      }
-    } catch (e) {
-      setState({ kind: "error", msg: String(e) });
-    }
-  };
-
-  const install = async () => {
-    if (state.kind !== "available") return;
-    setState({ kind: "installing" });
-    try {
-      await state.install();
-      // app relaunches; this code below won't run
-    } catch (e) {
-      setState({ kind: "error", msg: String(e) });
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="text-2xs uppercase tracking-widest text-dust">
-        replay checks for updates on each launch. tap below to check now.
-      </div>
-      {state.kind === "available" ? (
-        <div className="brackets p-3 space-y-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xs uppercase tracking-widest text-moss">●</span>
-            <span className="text-xs text-bone">
-              replay {state.version} available
-            </span>
-            <span className="text-2xs uppercase tracking-widest text-dust">
-              you have {state.currentVersion}
-            </span>
-          </div>
-          <button onClick={() => void install()} className="btn-primary">
-            ↓ install + relaunch
-          </button>
-        </div>
-      ) : null}
-      {state.kind === "uptodate" ? (
-        <div className="text-2xs uppercase tracking-widest text-moss">
-          ● up to date
-        </div>
-      ) : null}
-      {state.kind === "installing" ? (
-        <div className="text-2xs uppercase tracking-widest text-bone animate-tick">
-          ▮ downloading update…
-        </div>
-      ) : null}
-      {state.kind === "error" ? (
-        <div className="text-2xs uppercase tracking-widest text-ember">
-          ▲ {state.msg}
-        </div>
-      ) : null}
-      <button
-        onClick={() => void check()}
-        disabled={state.kind === "checking" || state.kind === "installing"}
-        className="btn-secondary disabled:opacity-50"
-      >
-        {state.kind === "checking" ? "▮ checking…" : "↻ check for updates"}
-      </button>
     </div>
   );
 }

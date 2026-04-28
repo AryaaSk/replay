@@ -12,7 +12,6 @@
     "core:event:default",
     "core:path:default",
     "shell:default",
-    "dialog:default",
-    "updater:default"
+    "dialog:default"
   ]
 }

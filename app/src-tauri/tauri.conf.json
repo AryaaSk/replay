@@ -40,27 +40,11 @@
       "icons/icon.icns"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0",
-      "signingIdentity": "Developer ID Application: Saravana Kumar (R7WQ479X2H)",
-      "providerShortName": "R7WQ479X2H",
-      "entitlements": "entitlements.plist",
-      "exceptionDomain": "",
-      "frameworks": []
+      "minimumSystemVersion": "13.0"
     },
     "externalBin": ["binaries/replay-cli"],
     "category": "DeveloperTool",
     "shortDescription": "Structured bug reports for AI agents",
     "longDescription": "Replay turns short macOS screen recordings into AI-ingestable structured timelines plus key frames, suitable for pasting into Claude Code, Cursor, or any AI coding agent."
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/AryaaSk/replay/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGMjM1QzA0QUM5NzQxQ0UKUldUT1FaZXNCRndqYjhEbUdDMEI0M1lCcTAzZkNGUGlYYjAwQWcrUGtFdVFIZ2dMS3dNanQ2bEwK",
-      "windows": {
-        "installMode": "passive"
-      }
-    }
   }
 }

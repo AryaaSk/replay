@@ -78,7 +78,7 @@ First launch:
 - Settings → Provider: defaults to **local Claude Code** (uses your existing `claude` CLI auth, no API key needed). Or paste an Anthropic / OpenAI key for BYOK API mode.
 - Hit the big red Record button. Reproduce something. Click Stop. Watch Claude generate the structured replay report.
 
-For a packaged `.app` you can drag to /Applications: `npm run tauri:build` — produces a signed .dmg in `src-tauri/target/release/bundle/dmg/`. (See [BUILDING.md](./BUILDING.md) for the Apple Developer cert / Gatekeeper notes.)
+For a packaged `.app` you can drag to /Applications: `npm run tauri:build` — produces an unsigned .dmg in `src-tauri/target/release/bundle/dmg/`. (See [BUILDING.md](./BUILDING.md) for the Gatekeeper warning workaround.)
 
 ---
 
