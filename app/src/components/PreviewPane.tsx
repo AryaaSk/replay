@@ -146,7 +146,19 @@ export function PreviewPane({ replayId, onClose, onIdChange }: Props) {
   }, [markdown, frameUrls]);
 
   const onCopy = async () => {
-    await navigator.clipboard.writeText(markdown);
+    // Rewrite relative `frames/NN.png` refs to absolute `file://` URLs so the
+    // markdown is portable when pasted outside the replay folder.
+    const absoluteMd = detail
+      ? markdown.replace(
+          /!\[([^\]]*)\]\(frames\/([^)]+)\)/g,
+          (_m, alt: string, file: string) => {
+            const abs = `${detail.bundlePath}/frames/${file}`;
+            const encoded = abs.split("/").map(encodeURIComponent).join("/");
+            return `![${alt}](file://${encoded})`;
+          },
+        )
+      : markdown;
+    await navigator.clipboard.writeText(absoluteMd);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
