@@ -6,7 +6,7 @@ Replay is a macOS desktop app that turns short screen recordings into structured
 
 See `../PLAN.md` for the comprehensive architecture spec.
 
-https://aryaask.github.io/replay/
+## URL: https://aryaask.github.io/replay/
 
 ---
 
