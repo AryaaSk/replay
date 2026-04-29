@@ -24,9 +24,9 @@ This is the same problem the Transformer solved with positional token encoding.
 
 A sentence is a sequence; each word has a temporal position; attention by itself is order-blind. Positional encoding tags each token with its place in the sequence, letting the model see all words at once while still knowing which came first.
 
-Video has had the same problem, mostly unsolved. Current video models downsample to N frames and treat each as an independent image, which throws away the structure that made language models work in the first place.
+Video has caught up partly. Sora uses spacetime patches; modern video transformers use 3D RoPE; Qwen2.5-VL and Gemini tag frames with their place in the timeline. Positional encoding for video isn't unsolved. What's unsolved is canonical tokenization: there's no BPE for video, and patch size, frame rate, and compression are hyperparameters chosen per model rather than properties of the medium.
 
-A timestamped markdown timeline with key frames is an abstract video equivalent of token plus positional index encoding.
+A timestamped markdown timeline with key frames goes the other direction. It's discrete and semantic from the start, each event its own token with its own timestamp. An abstract video equivalent of word plus positional encoding, not pixel-cube plus positional encoding.
 
 Once a video is addressable, the implications stretch well past bug reports:
 
