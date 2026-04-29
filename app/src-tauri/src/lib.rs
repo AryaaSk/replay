@@ -10,6 +10,7 @@ mod installer;
 mod janitor;
 mod keychain;
 mod menubar;
+mod monitors;
 mod paths;
 mod permissions;
 mod recording;
@@ -341,6 +342,11 @@ async fn check_permissions() -> Result<permissions::PermissionsReport> {
 }
 
 #[tauri::command]
+async fn list_monitors() -> Result<Vec<monitors::MonitorInfo>> {
+    monitors::list().await
+}
+
+#[tauri::command]
 async fn open_permission_settings(kind: String) -> Result<()> {
     permissions::open_settings_pane(&kind)
 }
@@ -460,6 +466,7 @@ pub fn run() {
             set_api_key,
             agent_status,
             check_permissions,
+            list_monitors,
             open_permission_settings,
             quit_capturing,
             open_replay_dir,

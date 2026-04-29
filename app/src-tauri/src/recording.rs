@@ -39,8 +39,10 @@ fn build_command(
     if settings.disable_audio {
         cmd.arg("--disable-audio");
     }
-    if let Some(monitor_id) = settings.monitor_id {
-        cmd.arg("--monitor-id").arg(monitor_id.to_string());
+    // Empty list = use all monitors (default screenpipe behaviour).
+    // Otherwise pass --monitor-id once per selected display.
+    for id in &settings.monitor_ids {
+        cmd.arg("--monitor-id").arg(id.to_string());
     }
 
     // Inherit stderr/stdout for log forwarding (tauri sidecar pattern doesn't apply

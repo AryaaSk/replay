@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentStatus,
   CaptureState,
+  MonitorInfo,
   PermissionKind,
   PermissionsReport,
   PermissionStatus,
@@ -116,7 +117,7 @@ export const ipc = {
       lookback_seconds: number;
       provider: string;
       model: string;
-      monitor_id: number | null;
+      monitor_ids: number[];
       filter_music: boolean;
       use_pii_removal: boolean;
       redact_secrets: boolean;
@@ -136,7 +137,7 @@ export const ipc = {
           : "anthropic"
       ) as Provider,
       model: s.model as Settings["model"],
-      monitorId: s.monitor_id,
+      monitorIds: s.monitor_ids ?? [],
       filterMusic: s.filter_music,
       usePiiRemoval: s.use_pii_removal,
       redactSecrets: s.redact_secrets,
@@ -156,7 +157,7 @@ export const ipc = {
         lookback_seconds: s.lookbackSeconds,
         provider: s.provider,
         model: s.model,
-        monitor_id: s.monitorId,
+        monitor_ids: s.monitorIds,
         filter_music: s.filterMusic,
         use_pii_removal: s.usePiiRemoval,
         redact_secrets: s.redactSecrets,
@@ -204,6 +205,18 @@ export const ipc = {
 
   openPermissionSettings: (kind: PermissionKind) =>
     invoke<void>("open_permission_settings", { kind }),
+
+  listMonitors: () =>
+    invoke<Array<{ id: number; name: string; width: number; height: number; is_default: boolean }>>("list_monitors")
+      .then((rows): MonitorInfo[] =>
+        rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          width: r.width,
+          height: r.height,
+          isDefault: r.is_default,
+        })),
+      ),
 
   quitCapturing: () => invoke<void>("quit_capturing"),
 

@@ -6,6 +6,7 @@ import {
   OPENAI_MODELS,
   type AgentStatus,
   type AnthropicModel,
+  type MonitorInfo,
   type OpenAIModel,
   type PermissionKind,
   type PermissionsReport,
@@ -24,6 +25,8 @@ export function SettingsPane({ onClose }: Props) {
   const [agents, setAgents] = useState<AgentStatus | null>(null);
   const [permissions, setPermissions] = useState<PermissionsReport | null>(null);
   const [permissionsRechecking, setPermissionsRechecking] = useState(false);
+  const [monitors, setMonitors] = useState<MonitorInfo[] | null>(null);
+  const [monitorsError, setMonitorsError] = useState<string | null>(null);
   const [anthropicInput, setAnthropicInput] = useState("");
   const [openaiInput, setOpenaiInput] = useState("");
   const [keyMessage, setKeyMessage] = useState<string>("");
@@ -34,6 +37,12 @@ export function SettingsPane({ onClose }: Props) {
     void ipc.hasApiKey("openai").then(setHasOpenAI);
     void ipc.agentStatus().then(setAgents);
     void ipc.checkPermissions().then(setPermissions);
+    void ipc.listMonitors()
+      .then((m) => {
+        setMonitors(m);
+        setMonitorsError(null);
+      })
+      .catch((e) => setMonitorsError(String(e)));
   }, []);
 
   const recheckPermissions = async () => {
@@ -272,6 +281,27 @@ export function SettingsPane({ onClose }: Props) {
             onChange={(v) => update({ disableAudio: v })}
             label="disable audio capture entirely"
           />
+
+          <div className="mt-4">
+            <div className="text-2xs uppercase tracking-widest text-dust mb-2">
+              displays to capture
+            </div>
+            {monitorsError ? (
+              <div className="text-2xs uppercase tracking-widest text-ember">
+                ▲ {monitorsError}
+              </div>
+            ) : monitors === null ? (
+              <div className="text-2xs uppercase tracking-widest text-dust animate-tick">
+                ▮ probing displays
+              </div>
+            ) : (
+              <MonitorPicker
+                monitors={monitors}
+                selected={settings.monitorIds}
+                onChange={(ids) => update({ monitorIds: ids })}
+              />
+            )}
+          </div>
         </Section>
 
         <Section index="05" title="Privacy">
@@ -558,6 +588,91 @@ function Radio({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function MonitorPicker({
+  monitors,
+  selected,
+  onChange,
+}: {
+  monitors: MonitorInfo[];
+  selected: number[];
+  onChange: (ids: number[]) => void;
+}) {
+  const allSelected = selected.length === 0;
+  const toggle = (id: number) => {
+    // Build the next selection treating "all" as the empty array. Selecting an
+    // explicit id while currently in "all" means: only that one. Toggling the
+    // last specific id off goes back to "all".
+    if (allSelected) {
+      onChange([id]);
+      return;
+    }
+    if (selected.includes(id)) {
+      const next = selected.filter((x) => x !== id);
+      onChange(next);
+    } else {
+      onChange([...selected, id].sort((a, b) => a - b));
+    }
+  };
+  return (
+    <div className="space-y-1.5">
+      <button
+        onClick={() => onChange([])}
+        className={[
+          "w-full flex items-baseline justify-between gap-3 px-3 py-2 border text-left transition-colors",
+          allSelected
+            ? "border-bone bg-bone/5"
+            : "border-rule hover:border-ash",
+        ].join(" ")}
+      >
+        <span className={["text-xs", allSelected ? "text-bone" : "text-ash"].join(" ")}>
+          all displays
+        </span>
+        <span className="text-2xs uppercase tracking-widest text-dust">
+          {monitors.length} detected
+        </span>
+      </button>
+      {monitors.map((m) => {
+        const isOn = !allSelected && selected.includes(m.id);
+        return (
+          <button
+            key={m.id}
+            onClick={() => toggle(m.id)}
+            className={[
+              "w-full flex items-baseline justify-between gap-3 px-3 py-2 border text-left transition-colors",
+              isOn ? "border-bone bg-bone/5" : "border-rule hover:border-ash",
+            ].join(" ")}
+          >
+            <span className="flex items-baseline gap-2 min-w-0">
+              <span
+                className={[
+                  "font-mono text-2xs tabular-nums w-6 shrink-0",
+                  isOn ? "text-bone" : "text-dust",
+                ].join(" ")}
+              >
+                {String(m.id).padStart(2, "0")}
+              </span>
+              <span className={["text-xs truncate", isOn ? "text-bone" : "text-ash"].join(" ")}>
+                {m.name}
+              </span>
+              {m.isDefault ? (
+                <span className="text-2xs uppercase tracking-widest text-moss">·primary</span>
+              ) : null}
+            </span>
+            <span className="font-mono text-2xs tabular-nums text-dust shrink-0">
+              {m.width}×{m.height}
+            </span>
+          </button>
+        );
+      })}
+      <div className="text-2xs uppercase tracking-widest text-dust pt-1">
+        {allSelected
+          ? "screenpipe captures every connected display"
+          : `capturing ${selected.length} of ${monitors.length}`}
+      </div>
     </div>
   );
 }

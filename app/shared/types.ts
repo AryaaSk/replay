@@ -89,12 +89,20 @@ export interface InstallProgress {
   message: string;
 }
 
+export interface MonitorInfo {
+  id: number;
+  name: string;
+  width: number;
+  height: number;
+  isDefault: boolean;
+}
+
 export interface Settings {
   alwaysWarm: boolean;
   lookbackSeconds: LookbackSeconds;
   provider: Provider;
   model: ModelChoice;
-  monitorId: number | null; // null = all monitors
+  monitorIds: number[]; // empty = all monitors
   filterMusic: boolean;
   usePiiRemoval: boolean;
   redactSecrets: boolean;
@@ -112,7 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lookbackSeconds: 60,
   provider: "local-claude",
   model: "",
-  monitorId: null,
+  monitorIds: [],
   filterMusic: true,
   usePiiRemoval: true,
   redactSecrets: true,

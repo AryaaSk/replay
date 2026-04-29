@@ -8,13 +8,27 @@ pub fn load() -> Result<Settings> {
         return Ok(Settings::default());
     }
     let bytes = std::fs::read(&path)?;
-    match serde_json::from_slice::<Settings>(&bytes) {
-        Ok(s) => Ok(s),
+    let mut settings = match serde_json::from_slice::<Settings>(&bytes) {
+        Ok(s) => s,
         Err(e) => {
             log::warn!("failed to parse settings.json: {e}; using defaults");
-            Ok(Settings::default())
+            return Ok(Settings::default());
+        }
+    };
+
+    // Migrate legacy `monitor_id: <int|null>` (single-display, pre-multi-monitor)
+    // into `monitor_ids: [<int>]`. Only apply if the new field is empty AND the
+    // raw JSON still contains the old field — otherwise an empty Vec is the
+    // user's actual "all monitors" selection.
+    if settings.monitor_ids.is_empty() {
+        if let Ok(raw) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+            if let Some(legacy) = raw.get("monitor_id").and_then(|v| v.as_u64()) {
+                settings.monitor_ids = vec![legacy as u32];
+                log::info!("migrated legacy monitor_id={legacy} → monitor_ids");
+            }
         }
     }
+    Ok(settings)
 }
 
 pub fn save(settings: &Settings) -> Result<()> {

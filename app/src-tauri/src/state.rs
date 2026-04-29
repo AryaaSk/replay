@@ -59,7 +59,11 @@ pub struct Settings {
     #[serde(default = "default_provider")]
     pub provider: Provider,
     pub model: String,
-    pub monitor_id: Option<u32>,
+    /// Monitor IDs to record. Empty = all monitors. Multiple entries = multi-display capture.
+    /// Old single-value `monitor_id` settings.json files are migrated via serde default + a
+    /// post-load hook in settings_io::load.
+    #[serde(default)]
+    pub monitor_ids: Vec<u32>,
     pub filter_music: bool,
     pub use_pii_removal: bool,
     pub redact_secrets: bool,
@@ -83,7 +87,7 @@ impl Default for Settings {
             lookback_seconds: 60,
             provider: Provider::LocalClaude,
             model: String::new(),
-            monitor_id: None,
+            monitor_ids: Vec::new(),
             filter_music: true,
             use_pii_removal: true,
             redact_secrets: true,
