@@ -10,7 +10,12 @@ use crate::paths;
 
 /// Pinned screenpipe version installed by Replay v0.
 /// Bump on intentional Replay releases after verifying spawn flags still match.
-pub const PINNED_VERSION: &str = "0.3.299";
+///
+/// 0.3.299 had a vision regression where VisionManager started but never
+/// attached to any monitor — audio + UI events still worked, but the frames
+/// table stayed empty. 0.3.304 enumerates and attaches monitors correctly
+/// (verified against an M4 Mac on macOS 15.6 with dual displays).
+pub const PINNED_VERSION: &str = "0.3.304";
 
 /// screenpipe distributes its CLI through npm rather than GitHub releases.
 /// The main `screenpipe` package is a thin JS launcher; the actual native

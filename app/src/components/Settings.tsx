@@ -376,6 +376,7 @@ export function SettingsPane({ onClose }: Props) {
             onChange={(v) => update({ autoCheckScreenpipeUpdates: v })}
             label="auto-check for updates"
           />
+          <ReinstallScreenpipe />
         </Section>
 
         <Section index="08" title="Storage">
@@ -588,6 +589,54 @@ function Radio({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function ReinstallScreenpipe() {
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "running" }
+    | { kind: "done"; version: string }
+    | { kind: "error"; msg: string }
+  >({ kind: "idle" });
+
+  const reinstall = async () => {
+    // The install command writes over whatever binary is at the install path.
+    // If always-warm capture is running we'd race the file replace, so kill it
+    // first; user can re-toggle warm afterward.
+    setState({ kind: "running" });
+    try {
+      await ipc.quitCapturing();
+      const version = await ipc.installScreenpipe();
+      setState({ kind: "done", version });
+    } catch (e) {
+      setState({ kind: "error", msg: String(e) });
+    }
+  };
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <button
+        onClick={() => void reinstall()}
+        disabled={state.kind === "running"}
+        className="btn-secondary w-full disabled:opacity-50"
+      >
+        {state.kind === "running" ? "▮ downloading…" : "↻ reinstall screenpipe"}
+      </button>
+      {state.kind === "done" ? (
+        <div className="text-2xs uppercase tracking-widest text-moss">
+          ● installed · {state.version}
+        </div>
+      ) : null}
+      {state.kind === "error" ? (
+        <div className="text-2xs uppercase tracking-widest text-ember">
+          ▲ {state.msg}
+        </div>
+      ) : null}
+      <div className="text-2xs uppercase tracking-widest text-dust">
+        replaces the bundled binary with the version pinned by replay. stops capture first.
+      </div>
     </div>
   );
 }
