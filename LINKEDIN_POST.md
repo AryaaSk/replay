@@ -10,7 +10,7 @@ In 2026, you still can't paste a 30-second video into your AI coding agent.
 
 Which is bizarre, because that's how you'd show a bug to anyone else.
 
-I spent the last 3 days closing the gap.
+I spent yesterday closing the gap.
 
 Replay is a Mac app. Hit record, reproduce the bug, hit stop. Five seconds later you have a structured markdown timeline plus key frames, ready to paste into Claude Code, Cursor, or anywhere else. The demo below shows the loop end to end.
 
@@ -24,7 +24,7 @@ This is the same problem the Transformer solved with positional token encoding.
 
 A sentence is a sequence; each word has a temporal position; attention by itself is order-blind. Positional encoding tags each token with its place in the sequence, letting the model see all words at once while still knowing which came first.
 
-Video has caught up partly. Sora uses spacetime patches; modern video transformers use 3D RoPE; Qwen2.5-VL and Gemini tag frames with their place in the timeline. Positional encoding for video isn't unsolved. What's unsolved is canonical tokenization: there's no BPE for video, and patch size, frame rate, and compression are hyperparameters chosen per model rather than properties of the medium.
+Video has caught up partly. Sora uses spacetime patches; modern video transformers use 3D RoPE; Qwen2.5-VL and Gemini tag frames with their place in the timeline. Positional encoding for video isn't unsolved. What's less settled is tokenization: discrete video tokenizers do exist, but they produce opaque latent codes that are model-specific, with no equivalent of `the` or `function` that means something before the model touches it.
 
 A timestamped markdown timeline with key frames goes the other direction. It's discrete and semantic from the start, each event its own token with its own timestamp. An abstract video equivalent of word plus positional encoding, not pixel-cube plus positional encoding.
 
