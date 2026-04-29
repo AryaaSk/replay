@@ -164,7 +164,7 @@ Nothing under `~/Documents`, `~/Desktop`, `/Applications` (except the .app), or 
 - `pack.mjs` ships the sidecar as a Node-runtime wrapper rather than a self-contained binary. Works on the dev machine; for distribution we'll need to either bundle Node or use SEA properly — see PLAN.md §15.
 - Permission detection is best-effort: we surface errors at record time rather than pre-checking.
 - screenpipe SHA-256 verification is opportunistic — Replay verifies if a `.sha256` sidecar is published next to the release asset, otherwise relies on HTTPS + GitHub trust chain.
-- Frame attachment in v1 (MCP server) is not yet implemented.
+- Frame attachment in v1 (MCP server) is not yet implemented. 
 
 ## Tray icons
 
