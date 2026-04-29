@@ -1,14 +1,16 @@
 # LinkedIn post — Replay launch
 
-Final draft 2026-04-29. Two links: GitHub repo + zoral.ai. Demo video uploaded natively to the post.
+Final draft 2026-04-29. One link (Pages site); zoral.ai is mentioned inline. Demo video uploaded natively.
 
 ---
 
 ## Post body
 
-AI coding agents can see your screenshots. They can't watch you reproduce a bug.
+In 2026, you still can't paste a 30-second video into your AI coding agent.
 
-That's the gap I spent last week closing.
+Which is bizarre, because that's how you'd show a bug to anyone else.
+
+I spent last week closing the gap.
 
 Replay is a Mac app. Hit record, reproduce the bug, hit stop. Five seconds later you have a structured markdown timeline plus key frames, ready to paste into Claude Code, Cursor, or anywhere else. The demo below shows the loop end to end.
 
@@ -36,15 +38,14 @@ Replay is the bug-report use case.
 
 The format is the bigger bet.
 
-→ github.com/AryaaSk/replay
-→ zoral.ai
+→ aryaask.github.io/replay
 
 ---
 
 ## Notes for upload
 
-- Hook lives in lines 1-2 (above the "see more" fold): "AI coding agents can see your screenshots. They can't watch you reproduce a bug." Then the one-line paragraph "That's the gap I spent last week closing." closes the cliffhanger right under the cut.
-- Variation in pacing: short hook, one-line pivots, dense technical paragraphs, semicolon-triple list, bulleted implications, two-line close. Reader's eye keeps moving.
-- Demo gets uploaded natively to LinkedIn (don't link to YouTube; the algorithm penalises external video). Body says "demo below shows the loop end to end."
-- The Zoral framing is paragraph 5. Don't trim it; it reframes Replay from "weekend hack" to "fragment of real autonomous-systems work."
-- Closing two lines are single-sentence beats. Hard cut. Don't add a CTA question after.
+- Hook is engineered for the LinkedIn fold: line 1 is the absurd-sounding factual claim, line 2 makes the absurdity concrete. Both above the "see more" cut.
+- "In 2026, you still can't…" formulation is a known viral pattern: dated-and-implies-this-should-be-solved-by-now. Gets shared.
+- Demo gets uploaded natively to LinkedIn (don't link to YouTube; the algorithm penalises external video). Body says "the demo below shows the loop end to end."
+- Single link at close (Pages, not raw repo: site is more polished for a feed click-through, code listing has lower marketing value). zoral.ai stays inline as a soft cross-promotion, not a footer link.
+- Closing two-line cadence ("Replay is the bug-report use case." / "The format is the bigger bet.") is the thesis. Hard cut, no CTA question.
