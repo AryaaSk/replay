@@ -845,36 +845,182 @@ section.bay {
   .install { grid-template-columns: 1fr; }
 }
 
-/* ----------- Demo placeholder slot ----------- */
-.demo-slot {
-  border: 1px dashed var(--rule-bright);
+/* ----------- Demo viewer (video + rendered report) ----------- */
+.demo-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .demo-grid { grid-template-columns: 1fr; }
+}
+
+.demo-video, .report-panel {
   background: var(--carbon);
+  border: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+}
+.demo-video video {
+  display: block;
+  width: 100%;
   aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--ink);
+}
+.demo-head, .report-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--carbon-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.demo-head .dot, .report-head .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ember);
+  box-shadow: 0 0 8px var(--ember);
+  flex-shrink: 0;
+}
+.demo-head .title, .report-head .title { color: var(--bone); }
+.demo-head .meta, .report-head .meta {
+  margin-left: auto;
+  color: var(--dust);
+  letter-spacing: 0.16em;
+}
+.demo-video figcaption {
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.22em;
-  color: var(--dust);
+  color: var(--ash);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.report-panel {
+  max-height: 720px;
+}
+.report-content {
+  padding: 22px 26px;
+  overflow-y: auto;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--bone-dim);
+}
+.report-content::-webkit-scrollbar { width: 8px; }
+.report-content::-webkit-scrollbar-track { background: var(--ink); }
+.report-content::-webkit-scrollbar-thumb { background: var(--rule-bright); border: 2px solid var(--ink); }
+.report-content::-webkit-scrollbar-thumb:hover { background: var(--ember); }
+
+.report-content h1 {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 36, 'SOFT' 30;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.18;
+  letter-spacing: -0.012em;
+  color: var(--bone);
+  margin-bottom: 8px;
+}
+.report-content .recorded {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ash);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  position: relative;
-  overflow: hidden;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
 }
-.demo-slot::before {
-  content: '';
+.report-content .recorded strong { color: var(--bone); font-weight: 500; }
+.report-content h2 {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--ember);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.report-content ol {
+  list-style: none;
+  counter-reset: tl;
+}
+.report-content ol > li {
+  counter-increment: tl;
+  position: relative;
+  padding-left: 38px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.report-content ol > li:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.report-content ol > li::before {
+  content: counter(tl, decimal-leading-zero);
   position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(135deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%),
-    linear-gradient(45deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%);
-  opacity: 0.3;
+  left: 0;
+  top: 1px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dust);
+  letter-spacing: 0.08em;
 }
-.demo-slot span {
-  position: relative;
+.report-content .ts {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ember);
+  margin-right: 6px;
+  letter-spacing: 0.04em;
+}
+.report-content code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  background: var(--ink);
+  padding: 1px 5px;
+  border: 1px solid var(--rule);
+}
+.report-content img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--rule);
+  margin: 14px 0 4px;
+  background: var(--ink);
+}
+.demo-caption {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--dust);
+  text-align: center;
+  margin: 0 auto;
+  max-width: 80ch;
+  line-height: 1.7;
+}
+.demo-caption code {
   background: var(--carbon);
-  padding: 8px 16px;
-  border: 1px solid var(--rule-bright);
+  padding: 1px 5px;
+  border: 1px solid var(--rule);
+  color: var(--bone-dim);
+  font-size: 11px;
 }
 
 /* ----------- Footer ----------- */
@@ -1172,16 +1318,61 @@ h1.hero-title { animation-delay: 0.15s; }
   <div class="shell">
     <div class="bay-header">
       <span class="eyebrow"><span class="num">§03</span> Demo</span>
-      <h2 class="display">A 47-second flow becomes a <em>10k-token document.</em></h2>
-      <span class="bay-tag">demo·001</span>
+      <h2 class="display">A 26-second flow becomes a <em>structured timeline.</em></h2>
+      <span class="bay-tag">demo·001 · 01KQCB5R · 2026-04-29</span>
     </div>
 
-    <!-- Replace with actual video / screenshot -->
-    <div class="demo-slot" style="margin-bottom: 18px;">
-      <span>↗ drop screen recording / GIF here</span>
+    <div class="demo-grid">
+      <figure class="demo-video">
+        <header class="demo-head">
+          <span class="dot"></span>
+          <span class="title">capture · raw recording</span>
+          <span class="meta">26s · h.264</span>
+        </header>
+        <video autoplay muted loop playsinline controls preload="metadata">
+          <source src="assets/demo.mp4" type="video/mp4">
+          Your browser doesn't support video playback.
+        </video>
+        <figcaption>
+          User browses Rate My GitHub, lands on their profile (66.3/100, ouch), clicks through to GitHub, ends on the 3D-Engine repo. No narration.
+        </figcaption>
+      </figure>
+
+      <article class="report-panel">
+        <header class="report-head">
+          <span class="dot"></span>
+          <span class="title">report.md</span>
+          <span class="meta">replay · 01KQCB5R</span>
+        </header>
+        <div class="report-content">
+          <h1>Replay — Browsing Rate My GitHub score for AryaaSk and clicking through to the 3D-Engine repo</h1>
+          <p class="recorded"><strong>Recorded:</strong> 26s</p>
+          <h2>Timeline</h2>
+          <ol>
+            <li><span class="ts">[00:03]</span> User clicks on a New Tab in Google Chrome showing the Google homepage with shortcut tiles (GitHub, ChatGPT, YouTube, Gmail, etc.).
+              <img src="assets/replay-frames/01-google-chrome-new-tab---google-chrome-ar.png" alt="Frame 01: Chrome new tab">
+            </li>
+            <li><span class="ts">[00:08]</span> Page loads at <code>https://www.ratemygithub.com/</code> ("RATE MY GITHUB — arcade-grade developer scoring").</li>
+            <li><span class="ts">[00:10]</span> User clicks through to <code>https://www.ratemygithub.com/u/AryaaSk</code>.</li>
+            <li><span class="ts">[00:11]</span> Profile page renders with window title "AryaaSk · 66.3/100 — Rate My GitHub", showing a score dial and stat panels.
+              <img src="assets/replay-frames/03-google-chrome-aryaask-66-3-100-rate-my-g.png" alt="Frame 03: profile score dial">
+            </li>
+            <li><span class="ts">[00:12]</span> User clicks on the profile page (appears to follow a link out to GitHub).</li>
+            <li><span class="ts">[00:16]</span> Browser navigates to <code>https://github.com/AryaaSk</code> — the GitHub profile for "AryaaSk (Aryaa Saravanakumar)" with pinned repos and contribution graph.
+              <img src="assets/replay-frames/04-google-chrome-aryaask-aryaa-saravanakuma.png" alt="Frame 04: GitHub profile">
+            </li>
+            <li><span class="ts">[00:23]</span> Browser is on <code>https://github.com/AryaaSk/3D-Engine</code> — repository titled "Aryaa3D: A 3D Library I made which uses Parallel or Perspective Projection, and comes with it's own Object Builder/Editor", showing README content with a 3D cube screenshot and a "Limitations" section.
+              <img src="assets/replay-frames/05-google-chrome-aryaask-3d-engine-aryaa3d-.png" alt="Frame 05: 3D-Engine repo">
+            </li>
+            <li><span class="ts">[00:25]</span> User clicks within the 3D-Engine repository page.</li>
+          </ol>
+        </div>
+      </article>
     </div>
 
-    <p style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--dust); text-transform: uppercase; text-align: center; margin: 0 auto;">screenshots/demo placeholder · paths: docs/assets/demo.gif · or replace with embedded video</p>
+    <p class="demo-caption">
+      Left: the raw screen recording. Right: what Replay produced from it, paste-ready into Claude Code, Cursor, or anywhere else. Frames live alongside the report on disk under <code>~/Library/Application Support/Replay/replays/&lt;id&gt;/</code>; on copy, the frame paths get rewritten to absolute <code>file://</code> URLs so the markdown stays portable.
+    </p>
   </div>
 </section>
 
