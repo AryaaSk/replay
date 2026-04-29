@@ -24,7 +24,7 @@ This is the same problem the Transformer solved with positional token encoding.
 
 A sentence is a sequence; each word has a temporal position; attention by itself is order-blind. Positional encoding tags each token with its place in the sequence, letting the model see all words at once while still knowing which came first.
 
-Video has caught up partly. Sora uses spacetime patches; modern video transformers use 3D RoPE; Qwen2.5-VL and Gemini tag frames with their place in the timeline. Positional encoding for video isn't unsolved. What's less settled is tokenization: discrete video tokenizers do exist, but they produce opaque latent codes that are model-specific, with no equivalent of `the` or `function` that means something before the model touches it.
+Video has caught up partly. Sora uses spacetime patches; modern video transformers use 3D RoPE; Qwen2.5-VL and Gemini tag frames with their place in the timeline. Positional encoding for video isn't unsolved. What's less settled is tokenization: discrete video tokenizers do exist, but their codes are opaque latents. Nothing in video plays the role `the` or `function` plays in text, a unit that already means something before any model touches it.
 
 A timestamped markdown timeline with key frames goes the other direction. It's discrete and semantic from the start, each event its own token with its own timestamp. An abstract video equivalent of word plus positional encoding, not pixel-cube plus positional encoding.
 
