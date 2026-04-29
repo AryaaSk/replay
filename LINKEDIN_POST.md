@@ -20,9 +20,9 @@ I'm working on perception at zoral.ai, an autonomous AI worker that observes you
 
 LLMs are fundamentally static. They take a fixed-shape input and return a fixed-shape output. Video is dynamic, with temporal extent and ordering and causality. To pass a screen recording to a model at all, you have to encode that dynamic stream into a static representation that preserves the temporal information.
 
-This is the same problem the Transformer architecture solved for text.
+This is the same problem positional encoding solved inside the Transformer.
 
-A sentence is a sequence; each word has a temporal position; you cannot evaluate words in random order. Positional encoding kept the temporal information while letting the model see all words at once.
+A sentence is a sequence; each word has a temporal position; attention by itself is order-blind. Positional encoding tags each token with its place in the sequence, letting the model see all words at once while still knowing which came first.
 
 Video has had the same problem, mostly unsolved. Current video models downsample to N frames and treat each as an independent image, which throws away the structure that made language models work in the first place.
 
