@@ -1,0 +1,1401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0a0c">
+<title>Replay — structured replays for AI coding agents</title>
+<meta name="description" content="A 30-second screen recording, ~10K tokens of structured markdown, and your AI coding agent finally understands what you did. Local-only, BYOK, source-only, ~5 days of build.">
+<meta property="og:title" content="Replay — structured replays for AI coding agents">
+<meta property="og:description" content="Click record. Show your bug. Get a perfect description for your AI agent.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --ink: #0a0a0c;
+  --carbon: #131319;
+  --carbon-2: #1a1a22;
+  --rule: #1f1f29;
+  --rule-bright: #2a2a36;
+  --dust: #4a4a55;
+  --ash: #7c7c87;
+  --bone: #ece8e0;
+  --bone-dim: #c4c0b8;
+  --ember: #e84e1f;
+  --ember-glow: rgba(232, 78, 31, 0.12);
+  --emberlow: #2a0e08;
+  --moss: #5a8c3e;
+  --amber: #d4a04a;
+
+  --col: 80ch;
+  --r: 14px;
+
+  --display: 'Fraunces', 'Times New Roman', serif;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { background: var(--ink); }
+
+body {
+  font-family: var(--sans);
+  font-weight: 300;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--bone-dim);
+  background: var(--ink);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(232, 78, 31, 0.06), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 30%, rgba(90, 140, 62, 0.04), transparent 70%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Subtle film grain overlay — pure CSS, no image asset */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+/* ----------- Layout primitives ----------- */
+.shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+}
+
+.rule {
+  height: 1px;
+  background: var(--rule);
+  width: 100%;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ash);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.eyebrow .num {
+  color: var(--bone);
+  background: var(--carbon);
+  padding: 3px 8px;
+  border: 1px solid var(--rule-bright);
+  letter-spacing: 0.1em;
+}
+
+h1, h2, h3 { color: var(--bone); }
+
+.display {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 0;
+  font-weight: 350;
+  letter-spacing: -0.025em;
+  line-height: 0.96;
+  color: var(--bone);
+}
+
+.display em {
+  font-style: italic;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+  color: var(--ember);
+  font-weight: 350;
+}
+
+p { max-width: 64ch; }
+
+a { color: var(--bone); text-decoration: none; transition: color 0.15s; }
+a:hover { color: var(--ember); }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  color: var(--bone);
+}
+
+/* ----------- Top instrument bar ----------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 10, 12, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 32px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.brand-mark {
+  color: var(--bone);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+.brand-version {
+  color: var(--ash);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ember);
+  box-shadow: 0 0 10px var(--ember);
+  display: inline-block;
+  animation: blink 2.4s ease-in-out infinite;
+  margin-right: 8px;
+  vertical-align: 2px;
+}
+@keyframes blink {
+  0%, 60%, 100% { opacity: 1; }
+  70%, 80% { opacity: 0.2; }
+}
+
+.topbar-nav {
+  display: flex;
+  gap: 28px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.topbar-nav a:hover { color: var(--bone); }
+
+@media (max-width: 720px) {
+  .topbar-nav { display: none; }
+}
+
+/* ----------- Hero ----------- */
+.hero {
+  padding: 120px 0 80px;
+  position: relative;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: end;
+}
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 32px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.hero-meta .sep {
+  width: 1px;
+  background: var(--rule);
+}
+h1.hero-title {
+  font-size: clamp(48px, 7.6vw, 116px);
+  margin: 16px 0 24px;
+  letter-spacing: -0.035em;
+}
+.hero-sub {
+  font-size: 19px;
+  color: var(--bone-dim);
+  max-width: 56ch;
+  line-height: 1.55;
+  margin-bottom: 40px;
+}
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule-bright);
+  color: var(--bone);
+  background: var(--carbon);
+  transition: all 0.18s;
+}
+.btn:hover {
+  border-color: var(--ember);
+  color: var(--ember);
+  background: rgba(232, 78, 31, 0.04);
+}
+.btn-primary {
+  border-color: var(--ember);
+  background: var(--emberlow);
+  color: var(--bone);
+}
+.btn-primary:hover {
+  background: var(--ember);
+  color: var(--ink);
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 18px 0;
+  gap: 0;
+}
+.stat .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
+.stat .value {
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--bone);
+  font-feature-settings: 'tnum';
+}
+.stat:not(:last-child) {
+  border-right: 1px solid var(--rule);
+  padding-right: 16px;
+}
+.stat:not(:first-child) {
+  padding-left: 16px;
+}
+
+/* ----------- Hero instrument panel (right side) ----------- */
+.panel {
+  background: var(--carbon);
+  border: 1px solid var(--rule);
+  position: relative;
+  overflow: hidden;
+}
+.panel::before {
+  /* corner brackets */
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid transparent;
+  border-image: linear-gradient(135deg, var(--ember) 0% 8%, transparent 8% 92%, var(--ember) 92% 100%) 1;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.hero-panel {
+  padding: 24px;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ash);
+  text-transform: uppercase;
+}
+.panel-head .num {
+  color: var(--bone);
+}
+
+/* The mocked replay output as SVG-style cards */
+.replay-card {
+  border: 1px solid var(--rule);
+  background: var(--ink);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.replay-card .ts {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ember);
+  text-transform: uppercase;
+}
+.replay-card .body {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--bone);
+  line-height: 1.5;
+}
+.replay-card .body em {
+  font-style: normal;
+  color: var(--amber);
+}
+
+.frame-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: auto;
+}
+.frame-thumb {
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(135deg, var(--carbon-2), var(--rule));
+  border: 1px solid var(--rule);
+  position: relative;
+  overflow: hidden;
+}
+.frame-thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,0.02) 8px 9px);
+}
+.frame-thumb .nn {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--bone);
+  background: rgba(10,10,12,0.7);
+  padding: 1px 4px;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  .hero-stats .stat { padding: 12px 16px !important; border-right: none !important; }
+  .hero-stats .stat:nth-child(odd) { border-right: 1px solid var(--rule) !important; }
+  .hero-stats .stat:nth-child(-n+2) { border-bottom: 1px solid var(--rule); padding-bottom: 16px; margin-bottom: 12px; }
+  .hero-stats .stat:not(:first-child) { padding-left: 16px; }
+}
+
+/* ----------- Section template ----------- */
+section.bay {
+  padding: 96px 0;
+  position: relative;
+}
+.bay-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 56px;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.bay-header .eyebrow { white-space: nowrap; }
+.bay-header h2 {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 88, 'SOFT' 30;
+  font-weight: 350;
+  font-size: clamp(36px, 4.6vw, 64px);
+  letter-spacing: -0.025em;
+  line-height: 1.0;
+  flex: 1;
+  min-width: 0;
+}
+.bay-header h2 em {
+  font-style: italic;
+  font-variation-settings: 'opsz' 88, 'SOFT' 100, 'WONK' 1;
+  color: var(--ember);
+  font-weight: 350;
+}
+
+.bay-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+  text-align: right;
+  align-self: flex-start;
+}
+
+/* ----------- Comparison: today vs replay ----------- */
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--rule);
+}
+.compare-col {
+  padding: 28px 32px 36px;
+}
+.compare-col + .compare-col {
+  border-left: 1px solid var(--rule);
+  background: linear-gradient(180deg, rgba(232,78,31,0.03) 0%, transparent 60%);
+}
+.compare-col h3 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--ash);
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.compare-col + .compare-col h3 { color: var(--ember); }
+.compare-col h3 .marker {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: var(--ash);
+}
+.compare-col + .compare-col h3 .marker { background: var(--ember); }
+
+.compare-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.compare-list li {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--bone-dim);
+  padding-left: 22px;
+  position: relative;
+}
+.compare-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 12px;
+  height: 1px;
+  background: var(--dust);
+}
+.compare-col + .compare-col .compare-list li::before { background: var(--ember); }
+
+@media (max-width: 720px) {
+  .compare { grid-template-columns: 1fr; }
+  .compare-col + .compare-col { border-left: none; border-top: 1px solid var(--rule); }
+}
+
+/* ----------- Pipeline (how it works) ----------- */
+.pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--rule);
+}
+.pipe-step {
+  padding: 28px 24px 32px;
+  border-right: 1px solid var(--rule);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 280px;
+}
+.pipe-step:last-child { border-right: none; }
+.pipe-step .num {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+}
+.pipe-step .title {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 24, 'SOFT' 30;
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--bone);
+  line-height: 1.1;
+}
+.pipe-step .body {
+  font-size: 13.5px;
+  color: var(--ash);
+  line-height: 1.55;
+}
+.pipe-step .tech {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--dust);
+  text-transform: uppercase;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+}
+
+@media (max-width: 980px) {
+  .pipeline { grid-template-columns: 1fr 1fr; }
+  .pipe-step:nth-child(2) { border-right: none; }
+  .pipe-step:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+}
+@media (max-width: 560px) {
+  .pipeline { grid-template-columns: 1fr; }
+  .pipe-step { border-right: none; border-bottom: 1px solid var(--rule); }
+  .pipe-step:last-child { border-bottom: none; }
+}
+
+/* ----------- The format / Transformer insight ----------- */
+.insight {
+  position: relative;
+  padding: 96px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, rgba(232,78,31,0.04) 0%, transparent 50%, rgba(232,78,31,0.04) 100%);
+}
+.insight-quote {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 88, 'SOFT' 70, 'WONK' 1;
+  font-style: italic;
+  font-weight: 320;
+  font-size: clamp(32px, 4.6vw, 56px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--bone);
+  max-width: 24ch;
+  margin: 0 auto 40px;
+  text-align: center;
+}
+.insight-quote::before, .insight-quote::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: var(--ember);
+  margin: 24px auto;
+}
+.insight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  margin-top: 56px;
+  align-items: start;
+}
+.insight-grid p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--bone-dim);
+  margin-bottom: 18px;
+}
+.insight-grid p strong {
+  color: var(--bone);
+  font-weight: 500;
+}
+.insight-grid em {
+  color: var(--ember);
+  font-style: italic;
+}
+@media (max-width: 720px) {
+  .insight-grid { grid-template-columns: 1fr; gap: 32px; }
+}
+
+/* The token-comparison visual */
+.tokens-compare {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  align-items: center;
+  gap: 24px;
+  margin: 64px auto;
+  max-width: 880px;
+}
+.token-card {
+  border: 1px solid var(--rule);
+  padding: 24px;
+  background: var(--carbon);
+  text-align: center;
+}
+.token-card.bad {
+  opacity: 0.6;
+}
+.token-card .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ash);
+  margin-bottom: 10px;
+  display: block;
+}
+.token-card .num {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--bone);
+  font-feature-settings: 'tnum';
+  line-height: 1;
+  margin-bottom: 6px;
+  display: block;
+}
+.token-card.good .num { color: var(--ember); }
+.token-card .unit {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ash);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.token-arrow {
+  font-family: var(--mono);
+  color: var(--ember);
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 720px) {
+  .tokens-compare { grid-template-columns: 1fr; }
+  .token-arrow { transform: rotate(90deg); margin: 0 auto; padding: 8px; }
+}
+
+/* ----------- Unlocks ----------- */
+.unlocks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--rule);
+}
+.unlock {
+  padding: 32px 28px 36px;
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 300px;
+  position: relative;
+}
+.unlock:last-child { border-right: none; }
+.unlock .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ember);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.unlock h3 {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 36, 'SOFT' 30;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: var(--bone);
+  margin-bottom: 4px;
+}
+.unlock p {
+  font-size: 14.5px;
+  color: var(--ash);
+  line-height: 1.6;
+}
+@media (max-width: 980px) {
+  .unlocks { grid-template-columns: 1fr; }
+  .unlock { border-right: none; border-bottom: 1px solid var(--rule); }
+  .unlock:last-child { border-bottom: none; }
+}
+
+/* ----------- Privacy + meta panel ----------- */
+.dossier {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 48px;
+  align-items: start;
+}
+.dossier-stamp {
+  font-family: var(--display);
+  font-style: italic;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+  font-size: clamp(40px, 4vw, 56px);
+  line-height: 1;
+  color: var(--bone);
+  letter-spacing: -0.02em;
+}
+.dossier-stamp .em { color: var(--ember); }
+.dossier ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.dossier li {
+  border-top: 1px solid var(--rule);
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 16px;
+  font-size: 15px;
+  color: var(--bone-dim);
+  line-height: 1.55;
+}
+.dossier li:last-child { border-bottom: 1px solid var(--rule); }
+.dossier li .k {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ember);
+  letter-spacing: 0.12em;
+  padding-top: 3px;
+}
+.dossier li strong {
+  color: var(--bone);
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  .dossier { grid-template-columns: 1fr; }
+}
+
+/* ----------- Build / install ----------- */
+.install {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 48px;
+  align-items: start;
+}
+.install h3 {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 60, 'SOFT' 30;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  line-height: 1.05;
+}
+.install p { color: var(--ash); margin-bottom: 12px; }
+
+.terminal {
+  background: var(--carbon);
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow: hidden;
+}
+.terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--carbon-2);
+}
+.terminal-head .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--rule-bright);
+}
+.terminal-head .title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+  margin-left: 12px;
+}
+.terminal pre {
+  padding: 18px 20px;
+  overflow-x: auto;
+  color: var(--bone-dim);
+  font-family: var(--mono);
+}
+.terminal .prompt { color: var(--ember); user-select: none; }
+.terminal .comment { color: var(--dust); }
+.terminal .keyword { color: var(--amber); }
+
+@media (max-width: 720px) {
+  .install { grid-template-columns: 1fr; }
+}
+
+/* ----------- Demo placeholder slot ----------- */
+.demo-slot {
+  border: 1px dashed var(--rule-bright);
+  background: var(--carbon);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+.demo-slot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(135deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%),
+    linear-gradient(45deg, transparent 49.5%, var(--rule) 49.5% 50.5%, transparent 50.5%);
+  opacity: 0.3;
+}
+.demo-slot span {
+  position: relative;
+  background: var(--carbon);
+  padding: 8px 16px;
+  border: 1px solid var(--rule-bright);
+}
+
+/* ----------- Footer ----------- */
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 56px 0 64px;
+  margin-top: 64px;
+  color: var(--ash);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+.footer-mark {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--bone);
+}
+.footer-mark .v {
+  color: var(--ash);
+  font-size: 11px;
+  margin-left: 12px;
+  letter-spacing: 0.18em;
+}
+.footer-tag {
+  font-family: var(--display);
+  font-style: italic;
+  font-variation-settings: 'opsz' 24, 'SOFT' 100, 'WONK' 1;
+  font-size: 18px;
+  color: var(--ash);
+  margin-top: 8px;
+  max-width: 38ch;
+  line-height: 1.4;
+}
+.footer-col h4 {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+.footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.footer-col a {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--bone-dim);
+  letter-spacing: 0.04em;
+}
+.footer-col a:hover { color: var(--ember); }
+
+.footer-bottom {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dust);
+  text-transform: uppercase;
+}
+@media (max-width: 720px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+  .footer-bottom { flex-direction: column; gap: 12px; }
+}
+
+/* ----------- Side rails ----------- */
+.rail {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: 0 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  color: var(--dust);
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+}
+.rail-left {
+  left: 28px;
+  bottom: 24px;
+  top: auto;
+  transform: rotate(-90deg);
+  transform-origin: 0 0;
+}
+.rail-right {
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  transform-origin: 100% 0;
+}
+@media (max-width: 1280px) {
+  .rail { display: none; }
+}
+
+/* ----------- Animations: hero stagger ----------- */
+.hero-meta, h1.hero-title, .hero-sub, .hero-cta, .hero-stats {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeUp 0.7s cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+}
+.hero-meta { animation-delay: 0.05s; }
+h1.hero-title { animation-delay: 0.15s; }
+.hero-sub { animation-delay: 0.30s; }
+.hero-cta { animation-delay: 0.45s; }
+.hero-stats { animation-delay: 0.60s; }
+.hero-panel {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp 0.8s cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+  animation-delay: 0.75s;
+}
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s cubic-bezier(0.2, 0.6, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+    transition: none !important;
+  }
+  .live-dot { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="rail rail-left">REPLAY · v0 · prototype · 2026</div>
+<div class="rail rail-right">aryaask/replay · github.com</div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span class="brand-mark">REPLAY</span>
+      <span class="brand-version">v0 · 2026.04</span>
+    </div>
+    <nav class="topbar-nav">
+      <a href="#what">What</a>
+      <a href="#how">How</a>
+      <a href="#format">Format</a>
+      <a href="#unlocks">Unlocks</a>
+      <a href="#build">Build</a>
+      <a href="https://github.com/AryaaSk/replay">GitHub →</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="shell">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-meta">
+          <span><span class="num" style="background:var(--carbon);padding:3px 8px;border:1px solid var(--rule-bright);color:var(--bone);">§01</span></span>
+          <span>Bug reports for AI coding agents</span>
+          <div class="sep" style="height:14px;"></div>
+          <span style="color:var(--ember);">Source-only · MIT</span>
+        </div>
+
+        <h1 class="display hero-title">
+          Click record.<br>
+          Show your bug.<br>
+          <em>Get the perfect description.</em>
+        </h1>
+
+        <p class="hero-sub">
+          You can paste a screenshot into Claude. You can&rsquo;t paste a video.
+          Replay closes that gap: a 30-second screen recording becomes a
+          structured markdown timeline plus key frames, sized for an LLM&rsquo;s
+          context, ready to paste into Claude Code, Cursor, anything.
+        </p>
+
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="https://github.com/AryaaSk/replay">↗ View on GitHub</a>
+          <a class="btn" href="#how">↓ How it works</a>
+          <a class="btn" href="#format">↓ The format</a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat" style="padding-right:16px;">
+            <span class="label">Capture</span>
+            <span class="value">~30 s</span>
+          </div>
+          <div class="stat" style="padding:0 16px;">
+            <span class="label">Render</span>
+            <span class="value">~5 s</span>
+          </div>
+          <div class="stat" style="padding:0 16px;">
+            <span class="label">Tokens</span>
+            <span class="value">~10 k</span>
+          </div>
+          <div class="stat" style="padding-left:16px;">
+            <span class="label">Cost</span>
+            <span class="value">~$0.01</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right-side mocked instrument panel -->
+      <aside class="panel hero-panel" aria-hidden="true">
+        <div class="panel-head">
+          <span><span class="num">REC.LOG</span> · 14:32:00 → 14:32:47</span>
+          <span style="color:var(--ember);">● live</span>
+        </div>
+
+        <div class="replay-card">
+          <span class="ts">[00:00] Browser</span>
+          <span class="body">Visited <em>/products/widget-x</em>.</span>
+        </div>
+        <div class="replay-card">
+          <span class="ts">[00:05] Cart action</span>
+          <span class="body">Clicked <em>Add to cart</em>. Cart count went 0 → 1.</span>
+        </div>
+        <div class="replay-card">
+          <span class="ts">[00:12] Checkout</span>
+          <span class="body">Typed email, clicked <em>Continue</em>.</span>
+        </div>
+        <div class="replay-card">
+          <span class="ts">[00:27] Error</span>
+          <span class="body">Cannot read property <em>'address'</em> of undefined.</span>
+        </div>
+
+        <div class="panel-head" style="margin-top:8px;">
+          <span><span class="num">FRAMES</span> · 04 / 04</span>
+          <span>03 KB · png</span>
+        </div>
+        <div class="frame-strip">
+          <div class="frame-thumb"><span class="nn">01</span></div>
+          <div class="frame-thumb"><span class="nn">02</span></div>
+          <div class="frame-thumb"><span class="nn">03</span></div>
+          <div class="frame-thumb"><span class="nn">04</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ THE PROBLEM ============ -->
+<section class="bay reveal" id="what">
+  <div class="shell">
+    <div class="bay-header">
+      <span class="eyebrow"><span class="num">§02</span> The gap</span>
+      <h2 class="display">Showing a bug to your AI agent <em>shouldn&rsquo;t be harder</em> than showing it to a colleague.</h2>
+      <span class="bay-tag">log·002 · 2026-04</span>
+    </div>
+
+    <div class="compare">
+      <div class="compare-col">
+        <h3><span class="marker"></span> Today&rsquo;s options</h3>
+        <ul class="compare-list">
+          <li><strong>Paste a screenshot.</strong> Loses temporal context. The model sees the symptom but never the path that caused it.</li>
+          <li><strong>Record a video.</strong> ~100k+ tokens to ingest, expensive, and current video models downsample to N independent frames anyway.</li>
+          <li><strong>Type a bug report.</strong> You forget half the steps. The interesting one is always the one you didn&rsquo;t mention.</li>
+        </ul>
+      </div>
+      <div class="compare-col">
+        <h3><span class="marker"></span> With Replay</h3>
+        <ul class="compare-list">
+          <li><strong>Hit record.</strong> Screen + audio + UI events captured locally. Three layers of redaction before anything leaves the machine.</li>
+          <li><strong>Reproduce. Hit stop.</strong> ~5 seconds later you have a timestamped markdown timeline plus the key frames inline.</li>
+          <li><strong>Paste it.</strong> Into Claude Code, Cursor, GitHub Issues. ~10k tokens for the same coverage as a 100k-token raw video.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEMO ============ -->
+<section class="bay reveal" id="demo">
+  <div class="shell">
+    <div class="bay-header">
+      <span class="eyebrow"><span class="num">§03</span> Demo</span>
+      <h2 class="display">A 47-second flow becomes a <em>10k-token document.</em></h2>
+      <span class="bay-tag">demo·001</span>
+    </div>
+
+    <!-- Replace with actual video / screenshot -->
+    <div class="demo-slot" style="margin-bottom: 18px;">
+      <span>↗ drop screen recording / GIF here</span>
+    </div>
+
+    <p style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--dust); text-transform: uppercase; text-align: center; margin: 0 auto;">screenshots/demo placeholder · paths: docs/assets/demo.gif · or replace with embedded video</p>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="bay reveal" id="how">
+  <div class="shell">
+    <div class="bay-header">
+      <span class="eyebrow"><span class="num">§04</span> Pipeline</span>
+      <h2 class="display">Four steps. <em>All local</em> until the last.</h2>
+      <span class="bay-tag">spec · pipeline.md</span>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <span class="num">01 · Capture</span>
+        <span class="title">screenpipe records.</span>
+        <p class="body">A managed screenpipe binary captures frames, OCR, UI events, and audio into an isolated SQLite DB under Replay&rsquo;s app folder. Cold-spawn by default; nothing runs outside an explicit recording.</p>
+        <span class="tech">screenpipe · sqlite3 · sck-rs</span>
+      </div>
+      <div class="pipe-step">
+        <span class="num">02 · Coalesce</span>
+        <span class="title">Events get tokenised.</span>
+        <p class="body">A Node sidecar polls the DB, dedupes frames across monitors, collapses keystroke bursts into single text events, drops scroll/mouse-noise, and joins OCR only on app/window transitions.</p>
+        <span class="tech">node · better-sqlite3 · ts</span>
+      </div>
+      <div class="pipe-step">
+        <span class="num">03 · Pick frames</span>
+        <span class="title">Key moments only.</span>
+        <p class="body">Frames at every meaningful state change: app switch, modal open, error appearance, page navigation. Compressed, OCR-blur-redacted on per-frame coordinates, ready for vision input.</p>
+        <span class="tech">sharp · png · ocr boxes</span>
+      </div>
+      <div class="pipe-step">
+        <span class="num">04 · Describe</span>
+        <span class="title">An agent writes the report.</span>
+        <p class="body">Local Claude Code by default (no API key, uses your CLI auth), or BYOK Anthropic / OpenAI vision. Output is markdown: title, narration, numbered timeline with inline frame references, suggested investigation.</p>
+        <span class="tech">claude code · gpt-5 · sonnet-4-6</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ THE FORMAT (insight) ============ -->
+<section class="insight reveal" id="format">
+  <div class="shell">
+    <div class="eyebrow" style="margin-bottom: 32px; display: flex; justify-content: center;"><span class="num">§05</span> The format is the bigger bet</div>
+    <p class="insight-quote">A timestamped markdown timeline with key frames is the video equivalent of <em>token + positional&nbsp;index.</em></p>
+
+    <div class="tokens-compare">
+      <div class="token-card bad">
+        <span class="label">Raw video</span>
+        <span class="num">~100k</span>
+        <span class="unit">tokens · opaque to LLMs</span>
+      </div>
+      <div class="token-arrow">→</div>
+      <div class="token-card good">
+        <span class="label">Structured replay</span>
+        <span class="num">~10k</span>
+        <span class="unit">tokens · addressable</span>
+      </div>
+    </div>
+
+    <div class="insight-grid">
+      <div>
+        <p>This is the same problem the <strong>Transformer</strong> architecture solved for text. A sentence is a sequence; each word has a temporal position; you can&rsquo;t evaluate words in random order. <em>Positional encoding</em> kept the temporal information while letting the model see all words at once.</p>
+        <p>Video has had the same problem. Current video models downsample to N frames and treat each as an independent image, throwing away the temporal structure that made language models work in the first place.</p>
+      </div>
+      <div>
+        <p>A <strong>structured replay</strong> is the video equivalent of token + positional index. Frames have positions. Events have timestamps. App and window state is named.</p>
+        <p>Once a video is <em>addressable,</em> every downstream use gets cheaper: agents can reason about <strong>state at t=14s and what changed by t=18s</strong> without rebuilding it from raw pixels every time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHAT IT UNLOCKS ============ -->
+<section class="bay reveal" id="unlocks">
+  <div class="shell">
+    <div class="bay-header">
+      <span class="eyebrow"><span class="num">§06</span> Once a video is addressable</span>
+      <h2 class="display">Three things <em>get cheaper.</em></h2>
+      <span class="bay-tag">implications · open</span>
+    </div>
+
+    <div class="unlocks">
+      <div class="unlock">
+        <span class="label">Implication 01</span>
+        <h3>An AI watching your day.</h3>
+        <p>At 6pm it tells you: &ldquo;you spent 47 minutes in Slack, 12 of which were re-reading the same thread; your PR for X stalled at 2pm when you got pulled into a meeting.&rdquo; Local-only. BYOK. Replay&rsquo;s capture stack is most of the way there.</p>
+      </div>
+      <div class="unlock">
+        <span class="label">Implication 02</span>
+        <h3>Diffable video editing.</h3>
+        <p>Today, AI video tools generate end-to-end from a prompt and you can&rsquo;t tweak frame 47. With a structured intermediate you edit at the script level: <code>cut t=3 to t=5</code>, <code>replace dialogue with X</code>. The same diff-and-PR workflow we have for code.</p>
+      </div>
+      <div class="unlock">
+        <span class="label">Implication 03</span>
+        <h3>Demos that survive.</h3>
+        <p>Sales calls where the prospect&rsquo;s engineers can grep weeks-old footage for &ldquo;did we see retries on the API call.&rdquo; Tutorials with addressable bookmarks. Bug reports that read like commit messages.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRIVACY DOSSIER ============ -->
+<section class="bay reveal" id="privacy">
+  <div class="shell">
+    <div class="dossier">
+      <div>
+        <span class="eyebrow" style="display:block; margin-bottom: 16px;"><span class="num">§07</span> Privacy posture</span>
+        <p class="dossier-stamp"><em class="em">Local</em>-only<br>by default.</p>
+      </div>
+
+      <ul>
+        <li><span class="k">CAP</span><span><strong>Cold-spawn capture.</strong> screenpipe runs only during an explicit recording. Always-warm with a 60s look-back is opt-in and visibly indicated.</span></li>
+        <li><span class="k">RED</span><span><strong>Three layers of redaction.</strong> screenpipe&rsquo;s built-in PII removal, regex secret scan in the sidecar, image-region blur on per-frame OCR coordinates.</span></li>
+        <li><span class="k">KEY</span><span><strong>BYOK.</strong> Anthropic / OpenAI keys live in macOS Keychain under <code>app.replay</code>. No backend, no relay, no analytics.</span></li>
+        <li><span class="k">UI</span><span><strong>Three indicators.</strong> macOS native screen-recording dot (purple), Replay&rsquo;s tray icon (red while capturing), pulsing record button in-app.</span></li>
+        <li><span class="k">RM</span><span><strong>Wipe-on-quit.</strong> Toggle defaults ON. Clears <code>~/Library/Application Support/Replay/</code> on app exit. Nuclear &ldquo;wipe everything&rdquo; button in Settings.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BUILD IT ============ -->
+<section class="bay reveal" id="build">
+  <div class="shell">
+    <div class="install">
+      <div>
+        <span class="eyebrow" style="display:block; margin-bottom: 18px;"><span class="num">§08</span> Build it yourself</span>
+        <h3>Source-only.<br>Five steps. Ten minutes the first time.</h3>
+        <p>Replay is not shipped as a notarised <code>.dmg</code>. It&rsquo;s a hobby project, source on GitHub, MIT-licensed. Clone it, build it, run it. Prerequisites: macOS 13+, Node 22+, Rust toolchain, and either Claude Code installed or an Anthropic / OpenAI key.</p>
+        <p style="margin-top: 16px;"><a href="https://github.com/AryaaSk/replay/blob/main/BUILDING.md" style="color:var(--ember); text-decoration: underline; text-underline-offset: 4px;">↗ Full step-by-step in BUILDING.md</a></p>
+      </div>
+
+      <div class="terminal" role="presentation">
+        <div class="terminal-head">
+          <div class="dot" style="background:#e84e1f;"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="title">~/Replay/app · zsh</div>
+        </div>
+<pre><span class="comment"># 1. Clone</span>
+<span class="prompt">$</span> git clone https://github.com/AryaaSk/replay
+<span class="prompt">$</span> cd replay/app
+
+<span class="comment"># 2. Install JS deps (frontend + sidecar)</span>
+<span class="prompt">$</span> npm install
+<span class="prompt">$</span> cd sidecar &amp;&amp; npm install &amp;&amp; cd ..
+
+<span class="comment"># 3. Generate icons (one-time)</span>
+<span class="prompt">$</span> npm run icons &amp;&amp; npm run icons:app
+
+<span class="comment"># 4. Bundle the Node sidecar</span>
+<span class="prompt">$</span> npm run sidecar:build
+
+<span class="comment"># 5. Run in dev mode</span>
+<span class="prompt">$</span> npm run <span class="keyword">tauri:dev</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="shell">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-mark">REPLAY <span class="v">v0 · 2026.04 · prototype</span></div>
+        <p class="footer-tag">A 5-day proof of concept that the format, not the capture stack, is the interesting part. Built on screenpipe, Tauri, and a few sleepless evenings.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Source</h4>
+        <ul>
+          <li><a href="https://github.com/AryaaSk/replay">github.com/AryaaSk/replay</a></li>
+          <li><a href="https://github.com/AryaaSk/replay/blob/main/BUILDING.md">BUILDING.md</a></li>
+          <li><a href="https://github.com/AryaaSk/replay/blob/main/PLAN.md">PLAN.md (architecture)</a></li>
+          <li><a href="https://github.com/AryaaSk/replay/blob/main/LICENSE">MIT licence</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Built on</h4>
+        <ul>
+          <li><a href="https://github.com/screenpipe/screenpipe">screenpipe</a></li>
+          <li><a href="https://tauri.app">Tauri 2</a></li>
+          <li><a href="https://www.anthropic.com/claude">Claude (vision)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Aryaa SK · MIT</span>
+      <span>Hand-coded · No tracker · Pages-hosted</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Reveal-on-scroll for .reveal sections
+(function() {
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.05 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+})();
+</script>
+
+</body>
+</html>
